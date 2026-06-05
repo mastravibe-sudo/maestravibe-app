@@ -1,46 +1,87 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface Product {
+  _id: string;
+  name: string;
+  price: number;
+  category: string;
+  description: string;
+  colors: string[];
+  sizes: string[];
+  images: string[];
+}
+
+interface CartItem extends Product {
+  selectedColor: string;
+  selectedSize: string;
+  quantity: number;
+}
+
+interface CustomerInfo {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  area: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function playSuccessSound() {
+  try {
+    const audio = new Audio("/sound/mixkit-happy-bells-notification-937.wav");
+    audio.volume = 0.85;
+    audio.play().catch(() => {});
+  } catch {}
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
+  // Slider
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Products / filters
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+
+  // Product detail modal
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
-  const [cart, setCart] = useState<any[]>([]);
+  // Cart
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [showCart, setShowCart] = useState(false);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState<1 | 2>(1); // Step 1: Review, Step 2: Details
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [checkoutProduct, setCheckoutProduct] = useState<any>(null);
-  const [locationLoading, setLocationLoading] = useState(false);
 
-  const [customerInfo, setCustomerInfo] = useState({
-    name: "", email: "", phone: "", address: "", city: "", area: ""
+  // Checkout
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [checkoutStep, setCheckoutStep] = useState<1 | 2>(1);
+  const [checkoutProduct, setCheckoutProduct] = useState<CartItem | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [orderLoading, setOrderLoading] = useState(false);
+
+  // Success
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // Customer form
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
+    name: "", email: "", phone: "", address: "", city: "", area: "",
   });
 
-  const [allProducts, setAllProducts] = useState<any[]>([]);
-
+  // ── Slider data ──────────────────────────────────────────────────────────────
   const slides = [
     { id: 1, image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1200&auto=format&fit=crop", title: "Premium Electronics" },
     { id: 2, image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=1200&auto=format&fit=crop", title: "Trending Fashion" },
     { id: 3, image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1200&auto=format&fit=crop", title: "Modern Lifestyle" },
   ];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("products");
-    if (saved) setAllProducts(JSON.parse(saved));
-  }, []);
 
   const categories = [
     { name: "All", value: "all" },
@@ -51,25 +92,77 @@ export default function HomePage() {
     { name: "Sports", value: "sports" },
   ];
 
-  const filteredProducts = activeCategory === "all"
-    ? allProducts
-    : allProducts.filter(p => p.category === activeCategory);
+  // ── Effects ──────────────────────────────────────────────────────────────────
 
-  const openProduct = (product: any) => {
+  // Auto-rotate slider
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Load products from MongoDB API
+  const loadProducts = useCallback(async () => {
+    try {
+      setProductsLoading(true);
+      const res = await fetch("/api/products");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: Product[] = await res.json();
+      setAllProducts(data);
+    } catch (err) {
+      console.error("Failed to load products:", err);
+    } finally {
+      setProductsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  // ── Derived ───────────────────────────────────────────────────────────────────
+
+  const filteredProducts =
+    activeCategory === "all"
+      ? allProducts
+      : allProducts.filter((p) => p.category === activeCategory);
+
+  const checkoutItems: CartItem[] = checkoutProduct ? [checkoutProduct] : cart;
+  const orderTotal = checkoutItems.reduce(
+    (sum, item) => sum + item.price * (item.quantity || 1),
+    0
+  );
+
+  // ── Handlers ──────────────────────────────────────────────────────────────────
+
+  const openProduct = (product: Product) => {
     setSelectedProduct(product);
-    setSelectedColor(product.colors?.[0] || "#000000");
+    setSelectedColor(product.colors?.[0] || "");
     setSelectedSize(product.sizes?.[0] || "Standard");
     setSelectedImageIndex(0);
   };
 
-  const addToCart = (product: any) => {
-    const item = { ...product, selectedColor, selectedSize, quantity: 1 };
-    setCart(prev => [...prev, item]);
+  const addToCart = (product: Product) => {
+    const item: CartItem = {
+      ...product,
+      selectedColor: selectedColor || product.colors?.[0] || "",
+      selectedSize: selectedSize || product.sizes?.[0] || "Standard",
+      quantity: 1,
+    };
+    setCart((prev) => [...prev, item]);
+    setSelectedProduct(null);
     alert(`✅ ${product.name} cart mein add ho gaya!`);
   };
 
-  const handleBuyNow = (product: any) => {
-    setCheckoutProduct({ ...product, selectedColor, selectedSize, quantity: 1 });
+  const handleBuyNow = (product: Product) => {
+    const item: CartItem = {
+      ...product,
+      selectedColor: selectedColor || product.colors?.[0] || "",
+      selectedSize: selectedSize || product.sizes?.[0] || "Standard",
+      quantity: 1,
+    };
+    setCheckoutProduct(item);
     setSelectedProduct(null);
     setCheckoutStep(1);
     setShowCheckout(true);
@@ -82,21 +175,19 @@ export default function HomePage() {
     setShowCheckout(true);
   };
 
-  const updateQuantity = (index: number, newQuantity: number) => {
-    if (newQuantity < 1) return;
-    const updated = [...cart];
-    updated[index].quantity = newQuantity;
-    setCart(updated);
+  const updateQuantity = (index: number, newQty: number) => {
+    if (newQty < 1) return;
+    setCart((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], quantity: newQty };
+      return updated;
+    });
   };
 
   const removeFromCart = (index: number) => {
-    setCart(prev => prev.filter((_, i) => i !== index));
+    setCart((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const checkoutItems = checkoutProduct ? [checkoutProduct] : cart;
-  const orderTotal = checkoutItems.reduce((sum, item) => sum + item.price * (item.quantity || 1), 0);
-
-  // ---- GPS Location ----
   const detectLocation = () => {
     if (!navigator.geolocation) {
       alert("Aapka browser location support nahi karta.");
@@ -111,42 +202,18 @@ export default function HomePage() {
             `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
           );
           const data = await res.json();
-          const address = data.address;
+          const addr = data.address;
 
-          // City — multiple fallbacks
           const city =
-            address.city ||
-            address.town ||
-            address.village ||
-            address.county ||
-            address.state_district ||
-            "";
-
-          // Area — neighbourhood / suburb / road
+            addr.city || addr.town || addr.village || addr.county || addr.state_district || "";
           const area =
-            address.neighbourhood ||
-            address.suburb ||
-            address.quarter ||
-            address.road ||
-            "";
-
-          // Full readable address
-          const fullAddress = [
-            address.road,
-            address.neighbourhood || address.suburb,
-            address.city || address.town || address.village,
-          ]
+            addr.neighbourhood || addr.suburb || addr.quarter || addr.road || "";
+          const fullAddress = [addr.road, addr.neighbourhood || addr.suburb, addr.city || addr.town || addr.village]
             .filter(Boolean)
             .join(", ");
 
-          setCustomerInfo(prev => ({
-            ...prev,
-            city: city,
-            area: area,
-            address: fullAddress || prev.address,
-          }));
-
-          alert("✅ Location detect ho gayi! City, Area aur Address fill ho gaye.");
+          setCustomerInfo((prev) => ({ ...prev, city, area, address: fullAddress || prev.address }));
+          alert("✅ Location detect ho gayi!");
         } catch {
           alert("Location detect nahi ho saka. Please manually fill karein.");
         } finally {
@@ -165,60 +232,61 @@ export default function HomePage() {
     );
   };
 
-  const playSuccessSound = () => {
-    try {
-      const audio = new Audio("/sound/mixkit-happy-bells-notification-937.wav");
-      audio.volume = 0.85;
-      audio.play().catch(() => {});
-    } catch (e) {}
-  };
-
-  const submitOrder = (e: React.FormEvent) => {
+  const submitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const cleanItems = checkoutItems.map((item) => ({
-      id: item.id,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity || 1,
-      selectedColor: item.selectedColor,
-      selectedSize: item.selectedSize,
-      image: item.images?.[0] || "",
-    }));
-
-    const newOrder = {
-      id: Date.now(),
-      customer: customerInfo,
-      items: cleanItems,
-      total: orderTotal,
-      date: new Date().toLocaleString(),
-      status: "new",
-    };
+    setOrderLoading(true);
 
     try {
-      const existing = JSON.parse(localStorage.getItem("orders") || "[]");
-      localStorage.setItem("orders", JSON.stringify([...existing, newOrder].slice(-100)));
-    } catch {
-      console.error("Storage error");
-    }
+      const orderPayload = {
+        customer: customerInfo,
+        items: checkoutItems.map((item) => ({
+          productId: item._id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity || 1,
+          selectedColor: item.selectedColor,
+          selectedSize: item.selectedSize,
+          image: item.images?.[0] || "",
+        })),
+        total: orderTotal,
+        status: "new",
+      };
 
-    playSuccessSound();
-    setShowCheckout(false);
-    setCheckoutProduct(null);
-    setCart([]);
-    setCustomerInfo({ name: "", email: "", phone: "", address: "", city: "", area: "" });
-    setShowSuccess(true);
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderPayload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Order failed");
+      }
+
+      playSuccessSound();
+      setShowCheckout(false);
+      setCheckoutProduct(null);
+      setCart([]);
+      setCustomerInfo({ name: "", email: "", phone: "", address: "", city: "", area: "" });
+      setShowSuccess(true);
+    } catch (err: any) {
+      alert(`❌ Order place karne mein masla: ${err.message}`);
+    } finally {
+      setOrderLoading(false);
+    }
   };
+
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <main className="bg-white text-gray-900 min-h-screen">
 
-      {/* ===== HEADER ===== */}
+      {/* ── HEADER ──────────────────────────────────────────────────────────────── */}
       <nav className="bg-white border-b sticky top-0 z-50 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
           <h1 className="text-3xl font-bold text-purple-600">MAESTRA VIBE</h1>
           <div className="flex items-center gap-5">
-            <a href="https://wa.me/923274050806" target="_blank" className="text-2xl hover:scale-110 transition">💬</a>
+            <a href="https://wa.me/923274050806" target="_blank" rel="noreferrer" className="text-2xl hover:scale-110 transition">💬</a>
             <a href="tel:+923274050806" className="text-2xl hover:scale-110 transition">📞</a>
             <button onClick={() => setShowCart(true)} className="relative text-2xl hover:text-purple-600 transition">
               🛒
@@ -232,20 +300,28 @@ export default function HomePage() {
         </div>
       </nav>
 
-      {/* ===== SLIDER ===== */}
+      {/* ── SLIDER ──────────────────────────────────────────────────────────────── */}
       <section className="relative w-full h-64 md:h-96 overflow-hidden">
-        <img src={slides[currentSlide].image} alt="slider" className="w-full h-full object-cover transition-all duration-700" />
+        <img
+          src={slides[currentSlide].image}
+          alt="slider"
+          className="w-full h-full object-cover transition-all duration-700"
+        />
         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
           <h1 className="text-white text-4xl md:text-6xl font-bold text-center px-4">MAESTRA VIBE</h1>
         </div>
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
           {slides.map((_, i) => (
-            <button key={i} onClick={() => setCurrentSlide(i)} className={`w-2.5 h-2.5 rounded-full transition ${currentSlide === i ? 'bg-white' : 'bg-white/40'}`} />
+            <button
+              key={i}
+              onClick={() => setCurrentSlide(i)}
+              className={`w-2.5 h-2.5 rounded-full transition ${currentSlide === i ? "bg-white" : "bg-white/40"}`}
+            />
           ))}
         </div>
       </section>
 
-      {/* ===== CATEGORIES ===== */}
+      {/* ── CATEGORIES ──────────────────────────────────────────────────────────── */}
       <section className="py-4 bg-gray-50 border-b sticky top-[60px] z-40">
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -254,7 +330,9 @@ export default function HomePage() {
                 key={cat.value}
                 onClick={() => setActiveCategory(cat.value)}
                 className={`px-5 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap ${
-                  activeCategory === cat.value ? "bg-purple-600 text-white" : "bg-white border hover:bg-gray-100"
+                  activeCategory === cat.value
+                    ? "bg-purple-600 text-white"
+                    : "bg-white border hover:bg-gray-100"
                 }`}
               >
                 {cat.name}
@@ -264,20 +342,41 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== PRODUCTS GRID ===== */}
+      {/* ── PRODUCTS GRID ───────────────────────────────────────────────────────── */}
       <section className="py-10">
         <div className="max-w-6xl mx-auto px-4">
           <h2 className="text-2xl font-bold text-center mb-8 text-purple-700">
-            {activeCategory === "all" ? "Featured Products" : categories.find(c => c.value === activeCategory)?.name}
+            {activeCategory === "all"
+              ? "Featured Products"
+              : categories.find((c) => c.value === activeCategory)?.name}
           </h2>
 
-          {filteredProducts.length === 0 ? (
+          {productsLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-gray-100 rounded-2xl overflow-hidden animate-pulse">
+                  <div className="h-44 bg-gray-200" />
+                  <div className="p-3 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                    <div className="h-4 bg-gray-200 rounded w-1/2" />
+                    <div className="h-8 bg-gray-200 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredProducts.length === 0 ? (
             <p className="text-center py-20 text-gray-400 text-lg">Koi product nahi mila...</p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
               {filteredProducts.map((product) => (
-                <div key={product.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all group">
-                  <div onClick={() => openProduct(product)} className="overflow-hidden cursor-pointer relative">
+                <div
+                  key={product._id}
+                  className="bg-white border rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all group"
+                >
+                  <div
+                    onClick={() => openProduct(product)}
+                    className="overflow-hidden cursor-pointer relative"
+                  >
                     <img
                       src={product.images?.[0] || "https://via.placeholder.com/400"}
                       className="h-44 w-full object-cover group-hover:scale-105 transition-all duration-300"
@@ -288,11 +387,25 @@ export default function HomePage() {
                     <h3 className="font-semibold text-sm mb-1 line-clamp-2">{product.name}</h3>
                     <p className="text-purple-600 font-bold text-base">Rs. {product.price.toLocaleString()}</p>
                     <div className="flex gap-2 mt-3">
-                      <button onClick={() => openProduct(product)} className="flex-1 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded-xl font-medium transition">View</button>
-                      <button onClick={() => { openProduct(product); }} className="flex-1 py-2 text-xs bg-black text-white hover:bg-gray-800 rounded-xl font-medium transition">Add Cart</button>
+                      <button
+                        onClick={() => openProduct(product)}
+                        className="flex-1 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded-xl font-medium transition"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => openProduct(product)}
+                        className="flex-1 py-2 text-xs bg-black text-white hover:bg-gray-800 rounded-xl font-medium transition"
+                      >
+                        Add Cart
+                      </button>
                     </div>
                     <button
-                      onClick={() => { setSelectedColor(product.colors?.[0] || "#000000"); setSelectedSize(product.sizes?.[0] || "Standard"); handleBuyNow(product); }}
+                      onClick={() => {
+                        setSelectedColor(product.colors?.[0] || "");
+                        setSelectedSize(product.sizes?.[0] || "Standard");
+                        handleBuyNow(product);
+                      }}
                       className="w-full mt-2 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold transition"
                     >
                       Buy Now
@@ -305,7 +418,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ===== PRODUCT DETAIL MODAL ===== */}
+      {/* ── PRODUCT DETAIL MODAL ────────────────────────────────────────────────── */}
       {selectedProduct && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white w-full md:max-w-4xl rounded-t-3xl md:rounded-3xl overflow-hidden max-h-[95vh] overflow-y-auto">
@@ -318,12 +431,15 @@ export default function HomePage() {
                   alt={selectedProduct.name}
                 />
                 <div className="flex gap-2 mt-3 overflow-x-auto">
-                  {selectedProduct.images?.map((img: string, index: number) => (
+                  {selectedProduct.images?.map((img, index) => (
                     <img
                       key={index}
                       src={img}
                       onClick={() => setSelectedImageIndex(index)}
-                      className={`cursor-pointer rounded-xl border-2 h-16 w-16 object-cover shrink-0 transition ${selectedImageIndex === index ? 'border-purple-600' : 'border-transparent'}`}
+                      className={`cursor-pointer rounded-xl border-2 h-16 w-16 object-cover shrink-0 transition ${
+                        selectedImageIndex === index ? "border-purple-600" : "border-transparent"
+                      }`}
+                      alt={`thumb-${index}`}
                     />
                   ))}
                 </div>
@@ -333,26 +449,41 @@ export default function HomePage() {
               <div className="md:w-1/2 p-5 md:p-8">
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <span className="text-xs uppercase text-gray-400 font-medium capitalize">{selectedProduct.category}</span>
+                    <span className="text-xs uppercase text-gray-400 font-medium capitalize">
+                      {selectedProduct.category}
+                    </span>
                     <h1 className="text-xl md:text-2xl font-bold mt-1">{selectedProduct.name}</h1>
                   </div>
-                  <button onClick={() => setSelectedProduct(null)} className="text-3xl text-gray-400 hover:text-black leading-none">×</button>
+                  <button
+                    onClick={() => setSelectedProduct(null)}
+                    className="text-3xl text-gray-400 hover:text-black leading-none"
+                  >
+                    ×
+                  </button>
                 </div>
 
-                <p className="text-3xl font-bold text-purple-600 mb-4">Rs. {selectedProduct.price.toLocaleString()}</p>
-                <p className="text-gray-600 text-sm mb-5 whitespace-pre-line">{selectedProduct.description}</p>
+                <p className="text-3xl font-bold text-purple-600 mb-4">
+                  Rs. {selectedProduct.price.toLocaleString()}
+                </p>
+                <p className="text-gray-600 text-sm mb-5 whitespace-pre-line">
+                  {selectedProduct.description}
+                </p>
 
                 {/* Colors */}
                 {selectedProduct.colors?.length > 0 && (
                   <div className="mb-5">
                     <p className="font-semibold text-sm mb-2">Color</p>
                     <div className="flex gap-3 flex-wrap">
-                      {selectedProduct.colors.map((color: string, i: number) => (
+                      {selectedProduct.colors.map((color, i) => (
                         <button
                           key={i}
                           onClick={() => setSelectedColor(color)}
                           title={color}
-                          className={`w-10 h-10 rounded-full border-4 transition ${selectedColor === color ? 'border-purple-600 scale-110' : 'border-gray-200'}`}
+                          className={`w-10 h-10 rounded-full border-4 transition ${
+                            selectedColor === color
+                              ? "border-purple-600 scale-110"
+                              : "border-gray-200"
+                          }`}
                           style={{ backgroundColor: color }}
                         />
                       ))}
@@ -365,11 +496,15 @@ export default function HomePage() {
                   <div className="mb-6">
                     <p className="font-semibold text-sm mb-2">Size</p>
                     <div className="flex gap-2 flex-wrap">
-                      {selectedProduct.sizes.map((size: string, i: number) => (
+                      {selectedProduct.sizes.map((size, i) => (
                         <button
                           key={i}
                           onClick={() => setSelectedSize(size)}
-                          className={`px-4 py-2 border rounded-xl text-sm font-medium transition ${selectedSize === size ? 'bg-purple-600 text-white border-purple-600' : 'hover:bg-gray-100'}`}
+                          className={`px-4 py-2 border rounded-xl text-sm font-medium transition ${
+                            selectedSize === size
+                              ? "bg-purple-600 text-white border-purple-600"
+                              : "hover:bg-gray-100"
+                          }`}
                         >
                           {size}
                         </button>
@@ -398,13 +533,18 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ===== CART SIDEBAR ===== */}
+      {/* ── CART SIDEBAR ────────────────────────────────────────────────────────── */}
       {showCart && (
         <div className="fixed inset-0 bg-black/70 z-[60] flex justify-end">
           <div className="bg-white w-full max-w-md h-full flex flex-col">
             <div className="p-5 border-b flex justify-between items-center sticky top-0 bg-white">
               <h2 className="text-xl font-bold">Cart ({cart.length} items)</h2>
-              <button onClick={() => setShowCart(false)} className="text-3xl text-gray-400 hover:text-black">×</button>
+              <button
+                onClick={() => setShowCart(false)}
+                className="text-3xl text-gray-400 hover:text-black"
+              >
+                ×
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -413,19 +553,45 @@ export default function HomePage() {
               ) : (
                 cart.map((item, index) => (
                   <div key={index} className="flex gap-3 border rounded-2xl p-3">
-                    <img src={item.images?.[0]} className="w-20 h-20 object-cover rounded-xl shrink-0" alt="" />
+                    <img
+                      src={item.images?.[0]}
+                      className="w-20 h-20 object-cover rounded-xl shrink-0"
+                      alt={item.name}
+                    />
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-sm line-clamp-2">{item.name}</h4>
                       <div className="flex items-center gap-1 mt-1">
-                        <span className="w-4 h-4 rounded-full border inline-block shrink-0" style={{ backgroundColor: item.selectedColor }}></span>
+                        <span
+                          className="w-4 h-4 rounded-full border inline-block shrink-0"
+                          style={{ backgroundColor: item.selectedColor }}
+                        />
                         <span className="text-xs text-gray-500">{item.selectedSize}</span>
                       </div>
-                      <p className="font-bold text-purple-600 text-sm mt-1">Rs. {(item.price * (item.quantity || 1)).toLocaleString()}</p>
+                      <p className="font-bold text-purple-600 text-sm mt-1">
+                        Rs. {(item.price * (item.quantity || 1)).toLocaleString()}
+                      </p>
                       <div className="flex items-center gap-2 mt-2">
-                        <button onClick={() => updateQuantity(index, (item.quantity || 1) - 1)} className="w-7 h-7 border rounded-lg text-sm font-bold">−</button>
-                        <span className="text-sm font-semibold w-6 text-center">{item.quantity || 1}</span>
-                        <button onClick={() => updateQuantity(index, (item.quantity || 1) + 1)} className="w-7 h-7 border rounded-lg text-sm font-bold">+</button>
-                        <button onClick={() => removeFromCart(index)} className="text-red-400 text-xs ml-2 hover:text-red-600">Remove</button>
+                        <button
+                          onClick={() => updateQuantity(index, (item.quantity || 1) - 1)}
+                          className="w-7 h-7 border rounded-lg text-sm font-bold"
+                        >
+                          −
+                        </button>
+                        <span className="text-sm font-semibold w-6 text-center">
+                          {item.quantity || 1}
+                        </span>
+                        <button
+                          onClick={() => updateQuantity(index, (item.quantity || 1) + 1)}
+                          className="w-7 h-7 border rounded-lg text-sm font-bold"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => removeFromCart(index)}
+                          className="text-red-400 text-xs ml-2 hover:text-red-600"
+                        >
+                          Remove
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -437,9 +603,17 @@ export default function HomePage() {
               <div className="p-5 border-t bg-white">
                 <div className="flex justify-between mb-4 font-bold text-lg">
                   <span>Total</span>
-                  <span className="text-purple-700">Rs. {cart.reduce((s, i) => s + i.price * (i.quantity || 1), 0).toLocaleString()}</span>
+                  <span className="text-purple-700">
+                    Rs.{" "}
+                    {cart
+                      .reduce((s, i) => s + i.price * (i.quantity || 1), 0)
+                      .toLocaleString()}
+                  </span>
                 </div>
-                <button onClick={openCartCheckout} className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold transition">
+                <button
+                  onClick={openCartCheckout}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-4 rounded-2xl font-bold transition"
+                >
                   Checkout →
                 </button>
               </div>
@@ -448,16 +622,19 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ===== CHECKOUT MODAL ===== */}
+      {/* ── CHECKOUT MODAL ──────────────────────────────────────────────────────── */}
       {showCheckout && (
         <div className="fixed inset-0 bg-black/80 z-[70] flex items-end md:items-center justify-center">
           <div className="bg-white w-full md:max-w-lg rounded-t-3xl md:rounded-3xl max-h-[96vh] flex flex-col overflow-hidden">
-
             {/* Header */}
             <div className="p-5 border-b flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => checkoutStep === 2 ? setCheckoutStep(1) : (setShowCheckout(false), setCheckoutProduct(null))}
+                  onClick={() =>
+                    checkoutStep === 2
+                      ? setCheckoutStep(1)
+                      : (setShowCheckout(false), setCheckoutProduct(null))
+                  }
                   className="text-2xl text-gray-400 hover:text-black"
                 >
                   ←
@@ -467,17 +644,21 @@ export default function HomePage() {
                     {checkoutStep === 1 ? "Order Review" : "Delivery Details"}
                   </h2>
                   <div className="flex items-center gap-2 mt-1">
-                    <div className={`h-1.5 w-12 rounded-full ${checkoutStep >= 1 ? 'bg-purple-600' : 'bg-gray-200'}`}></div>
-                    <div className={`h-1.5 w-12 rounded-full ${checkoutStep >= 2 ? 'bg-purple-600' : 'bg-gray-200'}`}></div>
+                    <div className={`h-1.5 w-12 rounded-full ${checkoutStep >= 1 ? "bg-purple-600" : "bg-gray-200"}`} />
+                    <div className={`h-1.5 w-12 rounded-full ${checkoutStep >= 2 ? "bg-purple-600" : "bg-gray-200"}`} />
                   </div>
                 </div>
               </div>
-              <button onClick={() => { setShowCheckout(false); setCheckoutProduct(null); }} className="text-2xl text-gray-400">×</button>
+              <button
+                onClick={() => { setShowCheckout(false); setCheckoutProduct(null); }}
+                className="text-2xl text-gray-400"
+              >
+                ×
+              </button>
             </div>
 
             <div className="overflow-y-auto flex-1 p-5">
-
-              {/* ---- STEP 1: Order Review ---- */}
+              {/* Step 1: Order Review */}
               {checkoutStep === 1 && (
                 <div>
                   <h3 className="font-semibold text-gray-700 mb-4">Aapka Order</h3>
@@ -493,25 +674,34 @@ export default function HomePage() {
                           <p className="font-semibold text-sm line-clamp-2">{item.name}</p>
                           <div className="flex flex-wrap gap-x-3 mt-1.5">
                             <span className="text-xs text-gray-500 flex items-center gap-1">
-                              <span className="w-3.5 h-3.5 rounded-full border inline-block" style={{ backgroundColor: item.selectedColor }}></span>
+                              <span
+                                className="w-3.5 h-3.5 rounded-full border inline-block"
+                                style={{ backgroundColor: item.selectedColor }}
+                              />
                               {item.selectedColor}
                             </span>
-                            <span className="text-xs text-gray-500">Size: <strong>{item.selectedSize}</strong></span>
-                            <span className="text-xs text-gray-500">Qty: <strong>{item.quantity || 1}</strong></span>
+                            <span className="text-xs text-gray-500">
+                              Size: <strong>{item.selectedSize}</strong>
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              Qty: <strong>{item.quantity || 1}</strong>
+                            </span>
                           </div>
-                          <p className="font-bold text-purple-600 mt-1">Rs. {(item.price * (item.quantity || 1)).toLocaleString()}</p>
+                          <p className="font-bold text-purple-600 mt-1">
+                            Rs. {(item.price * (item.quantity || 1)).toLocaleString()}
+                          </p>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Total */}
                   <div className="bg-purple-50 rounded-2xl p-4 flex justify-between items-center mb-6">
                     <span className="font-bold">Total Amount</span>
-                    <span className="font-bold text-purple-700 text-xl">Rs. {orderTotal.toLocaleString()}</span>
+                    <span className="font-bold text-purple-700 text-xl">
+                      Rs. {orderTotal.toLocaleString()}
+                    </span>
                   </div>
 
-                  {/* Payment info */}
                   <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6 text-sm text-yellow-800">
                     💵 <strong>Cash on Delivery</strong> — delivery ke waqt payment karein
                   </div>
@@ -525,11 +715,10 @@ export default function HomePage() {
                 </div>
               )}
 
-              {/* ---- STEP 2: Customer Details ---- */}
+              {/* Step 2: Customer Details */}
               {checkoutStep === 2 && (
                 <form onSubmit={submitOrder}>
-
-                  {/* GPS Location Button */}
+                  {/* GPS */}
                   <button
                     type="button"
                     onClick={detectLocation}
@@ -537,18 +726,13 @@ export default function HomePage() {
                     className="w-full mb-6 py-3.5 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 text-blue-700 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 transition disabled:opacity-60"
                   >
                     {locationLoading ? (
-                      <>
-                        <span className="animate-spin">⏳</span> Location detect ho raha hai...
-                      </>
+                      <><span className="animate-spin">⏳</span> Location detect ho raha hai...</>
                     ) : (
-                      <>
-                        📍 Apni Location Auto-Detect Karein
-                      </>
+                      <>📍 Apni Location Auto-Detect Karein</>
                     )}
                   </button>
 
                   <div className="space-y-4">
-                    {/* Name */}
                     <div>
                       <label className="block text-sm font-semibold mb-1.5 text-gray-700">Full Name *</label>
                       <input
@@ -561,7 +745,6 @@ export default function HomePage() {
                       />
                     </div>
 
-                    {/* Phone */}
                     <div>
                       <label className="block text-sm font-semibold mb-1.5 text-gray-700">Phone Number *</label>
                       <input
@@ -574,9 +757,10 @@ export default function HomePage() {
                       />
                     </div>
 
-                    {/* Email */}
                     <div>
-                      <label className="block text-sm font-semibold mb-1.5 text-gray-700">Email <span className="text-gray-400 font-normal">(optional)</span></label>
+                      <label className="block text-sm font-semibold mb-1.5 text-gray-700">
+                        Email <span className="text-gray-400 font-normal">(optional)</span>
+                      </label>
                       <input
                         type="email"
                         placeholder="email@example.com"
@@ -586,7 +770,6 @@ export default function HomePage() {
                       />
                     </div>
 
-                    {/* City */}
                     <div>
                       <label className="block text-sm font-semibold mb-1.5 text-gray-700">City *</label>
                       <input
@@ -599,7 +782,6 @@ export default function HomePage() {
                       />
                     </div>
 
-                    {/* Area */}
                     <div>
                       <label className="block text-sm font-semibold mb-1.5 text-gray-700">Area / Sector *</label>
                       <input
@@ -612,7 +794,6 @@ export default function HomePage() {
                       />
                     </div>
 
-                    {/* Address */}
                     <div>
                       <label className="block text-sm font-semibold mb-1.5 text-gray-700">Full Address *</label>
                       <textarea
@@ -626,7 +807,6 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Order summary mini */}
                   <div className="mt-5 bg-gray-50 rounded-2xl p-4 flex justify-between items-center">
                     <span className="text-sm text-gray-500">{checkoutItems.length} item(s)</span>
                     <span className="font-bold text-purple-700">Rs. {orderTotal.toLocaleString()}</span>
@@ -634,9 +814,10 @@ export default function HomePage() {
 
                   <button
                     type="submit"
-                    className="mt-4 w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-2xl font-bold text-lg transition"
+                    disabled={orderLoading}
+                    className="mt-4 w-full bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white py-4 rounded-2xl font-bold text-lg transition"
                   >
-                    ✅ Order Place Karein
+                    {orderLoading ? "⏳ Processing..." : "✅ Order Place Karein"}
                   </button>
                 </form>
               )}
@@ -645,25 +826,29 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ===== SUCCESS SCREEN ===== */}
+      {/* ── SUCCESS SCREEN ──────────────────────────────────────────────────────── */}
       {showSuccess && (
         <div className="fixed inset-0 bg-black/90 z-[80] flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-10 max-w-sm w-full text-center">
             <div className="text-7xl mb-5">🎉</div>
             <h1 className="text-3xl font-bold text-green-600 mb-2">Order Ho Gaya!</h1>
-            <p className="text-gray-600 mb-6">Shukriya MaestraVibe choose karne ka. Jald hi delivery ho gi!</p>
+            <p className="text-gray-600 mb-6">
+              Shukriya MaestraVibe choose karne ka. Jald hi delivery ho gi!
+            </p>
             <div className="bg-green-50 rounded-2xl p-5 mb-6 text-left text-sm space-y-1">
               <p>✅ Order confirm ho gaya</p>
               <p>📦 Packaging shuru hogi</p>
               <p>🚚 Delivery 2-4 din mein</p>
             </div>
-            <button onClick={() => setShowSuccess(false)} className="w-full bg-purple-600 text-white py-4 rounded-2xl font-bold">
+            <button
+              onClick={() => setShowSuccess(false)}
+              className="w-full bg-purple-600 text-white py-4 rounded-2xl font-bold"
+            >
               Shopping Jaari Rakhein
             </button>
           </div>
         </div>
       )}
-
     </main>
   );
 }
