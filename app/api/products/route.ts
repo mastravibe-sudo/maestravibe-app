@@ -1,78 +1,60 @@
+// app/api/products/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
 
-import { NextResponse } from "next/server";
-import { connectDB } from "@/lib/mongodb";
-import Product from "@/models/Product";
-// GET /api/products — fetch all products sorted newest first
+// GET - Fetch all products
 export async function GET() {
   try {
-    await connectDB();
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    const products = await Product.find({}).sort({ createdAt: -1 }).lean();
+    if (error) throw error;
 
-    return NextResponse.json(products, { status: 200 });
+    return NextResponse.json(data ?? []);
   } catch (error: any) {
-    console.error("GET /api/products error:", error);
+    console.error('Products GET Error:', error);
     return NextResponse.json(
-      { message: "Failed to fetch products", error: error.message },
+      { success: false, message: error.message ?? 'Failed to fetch products' },
       { status: 500 }
     );
   }
 }
 
-// POST /api/products — create a new product
-export async function POST(req: Request) {
+// POST - Create a new product
+export async function POST(request: NextRequest) {
   try {
-    await connectDB();
+    const body = await request.json();
 
-    const body = await req.json();
-
-    // Validate required fields
-    if (!body.name || body.name.trim() === "") {
+    if (!body.name || body.price === undefined) {
       return NextResponse.json(
-        { message: "Product name is required" },
+        { success: false, message: 'name and price are required' },
         { status: 400 }
       );
     }
 
-    if (!body.price || isNaN(Number(body.price))) {
-      return NextResponse.json(
-        { message: "Valid price is required" },
-        { status: 400 }
-      );
-    }
+    const { data, error } = await supabase
+      .from('products')
+      .insert([{
+        name: body.name,
+        price: Number(body.price),
+        category: body.category ?? 'fashion',
+        description: body.description ?? '',
+        colors: body.colors ?? [],
+        sizes: body.sizes ?? [],
+        images: body.images ?? [],
+      }])
+      .select()
+      .single();
 
-    if (!body.images || body.images.length === 0) {
-      return NextResponse.json(
-        { message: "At least one image is required" },
-        { status: 400 }
-      );
-    }
+    if (error) throw error;
 
-    const productData = {
-      name: body.name.trim(),
-      price: Number(body.price),
-      category: body.category || "fashion",
-      description: body.description || "",
-      colors: body.colors || [],
-      sizes: body.sizes || [],
-      images: body.images || [],
-    };
-
-    const product = await Product.create(productData);
-
-    return NextResponse.json(product, { status: 201 });
+    return NextResponse.json({ success: true, data }, { status: 201 });
   } catch (error: any) {
-    console.error("POST /api/products error:", error);
-
-    if (error.name === "ValidationError") {
-      return NextResponse.json(
-        { message: "Validation failed", error: error.message },
-        { status: 400 }
-      );
-    }
-
+    console.error('Products POST Error:', error);
     return NextResponse.json(
-      { message: "Failed to create product", error: error.message },
+      { success: false, message: error.message ?? 'Failed to create product' },
       { status: 500 }
     );
   }

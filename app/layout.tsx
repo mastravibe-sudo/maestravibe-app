@@ -1,14 +1,15 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-import Header from "@/app/components/header";
-import Footer from "@/app/components/footer";
+import Header from "@/components/header";
+import Footer from "@/components/footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"], // Recommended: add weights
+  weight: ["400", "500", "600", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -18,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Diouma",
+  title: "Maestra Vibe",
   description: "Innovating digital experiences",
   icons: {
     icon: "/favicon.ico",
@@ -38,15 +39,10 @@ export default function RootLayout({
     >
       <body
         className="min-h-screen flex flex-col antialiased"
-        suppressHydrationWarning   // ← This fixes the hydration mismatch
+        suppressHydrationWarning
       >
         <Header />
-
-        {/* Page Content */}
-        <main className="flex-1">
-          {children}
-        </main>
-
+        <main className="flex-1">{children}</main>
         <Footer />
       </body>
     </html>
