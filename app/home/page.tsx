@@ -35,12 +35,12 @@ const SLIDES = [
 ];
 
 const CATEGORIES = [
-  { label: "All", value: "all" },
-  { label: "Men", value: "men" },
-  { label: "Women", value: "women" },
-  { label: "Kids", value: "kids" },
-  { label: "Accessories", value: "accessories" },
-  { label: "Sale", value: "sale" },
+  { icon: "🛍️", label: "All", value: "all", name: "All" },
+  { icon: "👔", label: "Men", value: "men", name: "Men" },
+  { icon: "👗", label: "Women", value: "women", name: "Women" },
+  { icon: "🧒", label: "Kids", value: "kids", name: "Kids" },
+  { icon: "💍", label: "Accessories", value: "accessories", name: "Accessories" },
+  { icon: "🔥", label: "Sale", value: "sale", name: "Sale" },
 ];
 
 const SORT_OPTIONS = [
@@ -359,7 +359,7 @@ export default function HomePage() {
             {CATEGORIES.map(cat => (
               <button key={cat.value} onClick={() => handleCategoryClick(cat.value)}
                 className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition shrink-0 ${activeCategory === cat.value && view === "shop" ? "bg-rose-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-rose-50 hover:text-rose-600"}`}>
-                <span>{cat.icon}</span>{cat.name}
+                {cat.label}
               </button>
             ))}
           </div>
@@ -434,7 +434,7 @@ export default function HomePage() {
                 <button key={cat.value} onClick={() => handleCategoryClick(cat.value)}
                   className="flex flex-col items-center gap-2 bg-white rounded-2xl p-3 border border-gray-100 hover:border-rose-300 hover:shadow-md transition-all group">
                   <span className="text-3xl group-hover:scale-110 transition-transform">{cat.icon}</span>
-                  <span className="text-xs font-semibold text-gray-700 text-center leading-tight">{cat.name}</span>
+                  <span className="text-xs font-semibold text-gray-700 text-center leading-tight">{cat.label}</span>
                 </button>
               ))}
             </div>
