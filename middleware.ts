@@ -1,21 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+// Sirf /admin routes protect karo
+export const config = {
+  matcher: ['/admin/:path*'],
+};
 
-  if (pathname.startsWith('/admin')) {
-    // Login page allow karo
-    if (pathname.startsWith('/admin-s3cr3t-login')) return NextResponse.next();
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
-    const cookie = req.cookies.get('admin_auth');
-    if (cookie?.value !== process.env.ADMIN_SECRET) {
-      return NextResponse.redirect(new URL('/admin-s3cr3t-login', req.url));
-    }
+  // /admin/login ko skip karo — warna infinite redirect
+  if (pathname === '/admin/login') {
+    return NextResponse.next();
+  }
+
+  // Cookie check karo
+  const token = request.cookies.get('admin_token')?.value;
+
+  if (!token || token !== process.env.ADMIN_SECRET) {
+    // Login page par redirect
+    const loginUrl = new URL('/admin/login', request.url);
+    loginUrl.searchParams.set('from', pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
-
-export const config = {
-  matcher: ['/admin/:path*', '/admin-s3cr3t-login'],
-};

@@ -1,55 +1,72 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
-export default function AdminLogin() {
+import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+export default function AdminLoginPage() {
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+  const from         = searchParams.get('from') ?? '/admin';
+
   const [password, setPassword] = useState('');
-  const [error, setError]       = useState('');
-  const [loading, setLoading]   = useState(false);
-  const router = useRouter();
+  const [error,    setError]    = useState('');
+  const [loading,  setLoading]  = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setError('');
-    const res = await fetch('/api/admin-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password }),
-    });
-    if (res.ok) {
-      router.push('/admin');
-    } else {
-      setError('❌ Galat password hai!');
+    try {
+      const res = await fetch('/api/admin/login', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ password }),
+      });
+      if (!res.ok) { setError('Galat password'); return; }
+      router.push(from);
+      router.refresh();
+    } catch {
+      setError('Kuch masla hua, dobara try karo');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm p-8">
-        <div className="text-center mb-6">
-          <div className="text-4xl mb-2">🔐</div>
-          <h1 className="text-xl font-bold text-gray-900">Admin Access</h1>
-          <p className="text-sm text-gray-500 mt-1">Sirf authorized log andar ja sakte hain</p>
+    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-8">
+        <div className="text-center mb-8">
+          <div className="text-4xl mb-3">🔐</div>
+          <h1 className="text-2xl font-black text-gray-900">Admin Login</h1>
+          <p className="text-gray-400 text-sm mt-1">MaestraVibe Dashboard</p>
         </div>
+
         <form onSubmit={submit} className="space-y-4">
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="Password daalo..."
-            required
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
-          />
-          {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Admin password dalein"
+              required
+              autoFocus
+              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-400 transition"
+            />
+          </div>
+
+          {error && (
+            <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">❌ {error}</p>
+          )}
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-purple-600 text-white py-3 rounded-xl font-semibold text-sm hover:bg-purple-700 disabled:opacity-60">
-            {loading ? 'Check ho raha hai...' : 'Login Karo →'}
+            className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white py-3 rounded-xl font-bold text-sm transition"
+          >
+            {loading ? '⏳ Check ho raha hai...' : 'Login Karein →'}
           </button>
         </form>
       </div>
-    </div>
+    </main>
   );
 }

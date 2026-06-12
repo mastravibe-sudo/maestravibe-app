@@ -58,7 +58,7 @@ const COLOR_PALETTE = [
   { name: 'Baby Blue',   hex: '#89CFF0' },
   { name: 'Cyan',        hex: '#00FFFF' },
   { name: 'Turquoise',   hex: '#40E0D0' },
-  { name: 'Aqua',        hex: '#00FFFF' },
+  { name: 'Aqua',        hex: '#00CED1' },
   { name: 'Steel Blue',  hex: '#4682B4' },
   { name: 'Denim',       hex: '#1560BD' },
   // Purples
@@ -98,7 +98,7 @@ const COLOR_PALETTE = [
   // Special / Fashion
   { name: 'Burgundy',    hex: '#800020' },
   { name: 'Wine',        hex: '#722F37' },
-  { name: 'Fuchsia',     hex: '#FF00FF' },
+  { name: 'Fuchsia',     hex: '#FF10F0' },
   { name: 'Champagne',   hex: '#F7E7CE' },
   { name: 'Nude',        hex: '#E3BC9A' },
   { name: 'Terracotta',  hex: '#E2725B' },
@@ -229,11 +229,11 @@ export default function ColorPicker({ selected, onChange }: ColorPickerProps) {
             <div className="grid grid-cols-8 gap-1.5 max-h-52 overflow-y-auto pr-1">
               {filtered.length === 0 ? (
                 <p className="col-span-8 text-center text-xs text-gray-400 py-4">Koi color nahi mila</p>
-              ) : filtered.map(color => {
+              ) : filtered.map((color, idx) => {
                 const isSelected = selected.includes(color.hex.toUpperCase());
                 return (
                   <button
-                    key={color.hex}
+                    key={`${color.hex}-${idx}`}
                     type="button"
                     title={`${color.name} (${color.hex})`}
                     onClick={() => toggle(color.hex.toUpperCase())}
