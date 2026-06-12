@@ -1,0 +1,25 @@
+
+> maestravibe-app@0.1.0 build
+> next build
+
+▲ Next.js 16.2.6 (Turbopack)
+- Environments: .env.local
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+✓ Compiled successfully in 14.6s
+  Running TypeScript ...
+Failed to type check.
+
+.next/dev/types/validator.ts:144:31
+Type error: Type 'typeof import("D:/maestravibe.pk/maestravibe-app/app/products/page")' does not satisfy the constraint 'AppPageConfig<"/products">'.
+  Property 'default' is missing in type 'typeof import("D:/maestravibe.pk/maestravibe-app/app/products/page")' but required in type 'AppPageConfig<"/products">'.
+
+  [90m142 |[0m   [36mtype[0m __IsExpected<[33mSpecific[0m [36mextends[0m [33mAppPageConfig[0m<[32m"/products"[0m>> = [33mSpecific[0m
+  [90m143 |[0m   [36mconst[0m handler = {} [36mas[0m [36mtypeof[0m [36mimport[0m([32m"../../../app/products/page.js"[0m)
+[31m[1m>[0m [90m144 |[0m   [36mtype[0m __Check = __IsExpected<[36mtypeof[0m handler>
+  [90m    |[0m                               [31m[1m^[0m
+  [90m145 |[0m   [90m// @ts-ignore[0m
+  [90m146 |[0m   [36mtype[0m __Unused = __Check
+  [90m147 |[0m }
+Next.js build worker exited with code: 1 and signal: null
