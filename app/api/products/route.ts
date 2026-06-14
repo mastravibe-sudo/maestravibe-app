@@ -1,61 +1,63 @@
 // app/api/products/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-// GET - Fetch all products
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !key) {
+    throw new Error('Missing Supabase environment variables: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
+  }
+
+  return createClient(url, key);
+}
+
+// GET /api/products
 export async function GET() {
   try {
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from('products')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
 
     return NextResponse.json(data ?? []);
-  } catch (error: any) {
-    console.error('Products GET Error:', error);
-    return NextResponse.json(
-      { success: false, message: error.message ?? 'Failed to fetch products' },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
   }
 }
 
-// POST - Create a new product
-export async function POST(request: NextRequest) {
+// POST /api/products
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
+    const supabase = getSupabase();
+    const body = await req.json();
 
-    if (!body.name || body.price === undefined) {
-      return NextResponse.json(
-        { success: false, message: 'name and price are required' },
-        { status: 400 }
-      );
+    const { name, price, actual_price, category, description, colors, sizes, images } = body;
+
+    if (!name || price === undefined) {
+      return NextResponse.json({ message: 'name and price are required' }, { status: 400 });
     }
 
     const { data, error } = await supabase
       .from('products')
-      .insert([{
-        name: body.name,
-        price: Number(body.price),
-        category: body.category ?? 'fashion',
-        description: body.description ?? '',
-        colors: body.colors ?? [],
-        sizes: body.sizes ?? [],
-        images: body.images ?? [],
-      }])
+      .insert([{ name, price, actual_price: actual_price ?? null, category, description, colors, sizes, images }])
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
 
-    return NextResponse.json({ success: true, data }, { status: 201 });
-  } catch (error: any) {
-    console.error('Products POST Error:', error);
-    return NextResponse.json(
-      { success: false, message: error.message ?? 'Failed to create product' },
-      { status: 500 }
-    );
+    return NextResponse.json(data, { status: 201 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

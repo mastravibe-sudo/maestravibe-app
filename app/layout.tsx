@@ -1,10 +1,8 @@
-// app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-
-import Header from "@/components/header";
 import Footer from "@/components/footer";
+import LayoutWrapper from "@/components/LayoutWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,11 +24,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="en"
@@ -41,8 +35,9 @@ export default function RootLayout({
         className="min-h-screen flex flex-col antialiased"
         suppressHydrationWarning
       >
-        <Header />
-        <main className="flex-1">{children}</main>
+        <LayoutWrapper>
+          {children}
+        </LayoutWrapper>
         <Footer />
       </body>
     </html>

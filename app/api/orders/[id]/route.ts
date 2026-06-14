@@ -1,48 +1,62 @@
 // app/api/orders/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-type Params = { params: Promise<{ id: string }> };
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Missing Supabase environment variables');
+  return createClient(url, key);
+}
 
-export async function GET(_req: NextRequest, { params }: Params) {
-  const { id } = await params;
+// PATCH /api/orders/[id]
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
+    const supabase = getSupabase();
+    const body = await req.json();
+    const { id } = params;
+
     const { data, error } = await supabase
-      .from('orders').select('*').eq('id', id).single();
-    if (error) throw error;
-    if (!data) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
-    return NextResponse.json({ success: true, data });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+      .from('orders')
+      .update(body)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json(data);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: Params) {
-  const { id } = await params;
+// DELETE /api/orders/[id]
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const body = await request.json();
-    const updates: Record<string, any> = {};
-    if (body.status   !== undefined) updates.status   = body.status;
-    if (body.customer !== undefined) updates.customer = body.customer;
-    if (body.items    !== undefined) updates.items    = body.items;
-    if (body.total    !== undefined) updates.total    = Number(body.total);
+    const supabase = getSupabase();
 
-    const { data, error } = await supabase
-      .from('orders').update(updates).eq('id', id).select().single();
-    if (error) throw error;
-    return NextResponse.json({ success: true, data });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
-  }
-}
+    const { error } = await supabase
+      .from('orders')
+      .delete()
+      .eq('id', params.id);
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  const { id } = await params;
-  try {
-    const { error } = await supabase.from('orders').delete().eq('id', id);
-    if (error) throw error;
-    return NextResponse.json({ success: true, message: 'Deleted' });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

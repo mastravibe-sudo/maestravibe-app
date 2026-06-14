@@ -1,29 +1,34 @@
 // app/api/subscribers/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-type Params = { params: Promise<{ id: string }> };
-
-export async function GET(_req: NextRequest, { params }: Params) {
-  const { id } = await params;
-  try {
-    const { data, error } = await supabase
-      .from('subscribers').select('*').eq('id', id).single();
-    if (error) throw error;
-    if (!data) return NextResponse.json({ success: false, message: 'Not found' }, { status: 404 });
-    return NextResponse.json({ success: true, data });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
-  }
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Missing Supabase environment variables');
+  return createClient(url, key);
 }
 
-export async function DELETE(_req: NextRequest, { params }: Params) {
-  const { id } = await params;
+// DELETE /api/subscribers/[id]
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const { error } = await supabase.from('subscribers').delete().eq('id', id);
-    if (error) throw error;
-    return NextResponse.json({ success: true, message: 'Deleted' });
-  } catch (error: any) {
-    return NextResponse.json({ success: false, message: error.message }, { status: 500 });
+    const supabase = getSupabase();
+
+    const { error } = await supabase
+      .from('subscribers')
+      .delete()
+      .eq('id', params.id);
+
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

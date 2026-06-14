@@ -1,25 +1,38 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
+// POST function ke andar, cookie set karne se pehle ye add karo
 export async function POST(req: NextRequest) {
-  const { password } = await req.json();
+  try {
+    const body = await req.json();
+    const { password } = body;
 
-  if (password !== process.env.ADMIN_PASSWORD) {
-    return NextResponse.json({ error: 'Wrong password' }, { status: 401 });
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminPassword) {
+      return NextResponse.json({ message: 'ADMIN_PASSWORD not set' }, { status: 500 });
+    }
+
+    if (password !== adminPassword) {
+      return NextResponse.json({ message: 'Incorrect password' }, { status: 401 });
+    }
+
+    // ✅ Fast Response + Cookie
+    const response = NextResponse.json({ 
+      success: true, 
+      message: 'Login successful' 
+    });
+
+    response.cookies.set('admin_session', 'authenticated', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24,
+      path: '/',
+    });
+
+    return response;
+
+  } catch (err) {
+    return NextResponse.json({ message: 'Server error' }, { status: 500 });
   }
-
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set('admin_auth', process.env.ADMIN_SECRET!, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 8, // 8 ghante
-    path: '/',
-  });
-  return res;
-}
-
-export async function DELETE() {
-  const res = NextResponse.json({ ok: true });
-  res.cookies.delete('admin_auth');
-  return res;
 }

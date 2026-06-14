@@ -1,62 +1,61 @@
 // app/api/subscribers/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-// GET - Fetch all subscribers
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Missing Supabase environment variables');
+  return createClient(url, key);
+}
+
+// GET /api/subscribers
 export async function GET() {
   try {
+    const supabase = getSupabase();
     const { data, error } = await supabase
       .from('subscribers')
       .select('*')
       .order('subscribed_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
 
     return NextResponse.json(data ?? []);
-  } catch (error: any) {
-    console.error('Subscribers GET Error:', error);
-    return NextResponse.json(
-      { success: false, message: error.message ?? 'Failed to fetch subscribers' },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
   }
 }
 
-// POST - Add a new subscriber
-export async function POST(request: NextRequest) {
+// POST /api/subscribers
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
+    const supabase = getSupabase();
+    const { email } = await req.json();
 
-    if (!body.email) {
-      return NextResponse.json(
-        { success: false, message: 'email is required' },
-        { status: 400 }
-      );
+    if (!email) {
+      return NextResponse.json({ message: 'Email is required' }, { status: 400 });
     }
 
     const { data, error } = await supabase
       .from('subscribers')
-      .insert([{ email: body.email }])
+      .insert([{ email }])
       .select()
       .single();
 
     if (error) {
-      // Unique constraint violation — already subscribed
+      // Handle duplicate email gracefully
       if (error.code === '23505') {
-        return NextResponse.json(
-          { success: false, message: 'This email is already subscribed' },
-          { status: 409 }
-        );
+        return NextResponse.json({ message: 'Already subscribed' }, { status: 409 });
       }
-      throw error;
+      return NextResponse.json({ message: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, data }, { status: 201 });
-  } catch (error: any) {
-    console.error('Subscribers POST Error:', error);
-    return NextResponse.json(
-      { success: false, message: error.message ?? 'Failed to subscribe' },
-      { status: 500 }
-    );
+    return NextResponse.json(data, { status: 201 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
   }
 }

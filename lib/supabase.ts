@@ -13,6 +13,7 @@ export type Product = {
   name: string;
   price: number;
   category: string;
+  actual_price?: number;   // ← yeh add karo
   description: string;
   colors: string[];
   sizes: string[];

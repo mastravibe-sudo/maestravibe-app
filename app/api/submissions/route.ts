@@ -1,100 +1,86 @@
 // app/api/submissions/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-// GET - Fetch all submissions (optionally filter by type)
-export async function GET(request: NextRequest) {
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Missing Supabase environment variables');
+  return createClient(url, key);
+}
+
+// GET /api/submissions
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type'); // e.g. ?type=contact
-
-    let query = supabase
+    const supabase = getSupabase();
+    const { data, error } = await supabase
       .from('submissions')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (type) {
-      query = query.eq('type', type);
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
     }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
 
     return NextResponse.json(data ?? []);
-  } catch (error: any) {
-    console.error('Submissions GET Error:', error);
-    return NextResponse.json(
-      { success: false, message: error.message ?? 'Failed to fetch submissions' },
-      { status: 500 }
-    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
   }
 }
 
-// POST - Create a new submission
-export async function POST(request: NextRequest) {
+// POST /api/submissions  (from contact form)
+export async function POST(req: NextRequest) {
   try {
-    const body = await request.json();
+    const supabase = getSupabase();
+    const body = await req.json();
+    const { name, email, type = 'contact', subject, message } = body;
 
-    if (!body.name || !body.email || !body.message) {
-      return NextResponse.json(
-        { success: false, message: 'name, email, and message are required' },
-        { status: 400 }
-      );
+    if (!name || !email) {
+      return NextResponse.json({ message: 'name and email are required' }, { status: 400 });
     }
 
     const { data, error } = await supabase
       .from('submissions')
-      .insert([{
-        name: body.name,
-        email: body.email,
-        subject: body.subject ?? null,
-        message: body.message,
-        status: 'new',
-        type: body.type ?? 'contact',
-      }])
+      .insert([{ name, email, type, subject, message, status: 'new' }])
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
 
-    return NextResponse.json({ success: true, data }, { status: 201 });
-  } catch (error: any) {
-    console.error('Submissions POST Error:', error);
-    return NextResponse.json(
-      { success: false, message: error.message ?? 'Failed to create submission' },
-      { status: 500 }
-    );
+    return NextResponse.json(data, { status: 201 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
   }
 }
 
-// PATCH - Update submission status (e.g. mark as read)
-export async function PATCH(request: NextRequest) {
+// PATCH /api/submissions  (update status)
+export async function PATCH(req: NextRequest) {
   try {
-    const body = await request.json();
+    const supabase = getSupabase();
+    const { id, status } = await req.json();
 
-    if (!body.id || !body.status) {
-      return NextResponse.json(
-        { success: false, message: 'id and status are required' },
-        { status: 400 }
-      );
+    if (!id || !status) {
+      return NextResponse.json({ message: 'id and status are required' }, { status: 400 });
     }
 
     const { data, error } = await supabase
       .from('submissions')
-      .update({ status: body.status })
-      .eq('id', body.id)
+      .update({ status })
+      .eq('id', id)
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      return NextResponse.json({ message: error.message }, { status: 500 });
+    }
 
-    return NextResponse.json({ success: true, data });
-  } catch (error: any) {
-    console.error('Submissions PATCH Error:', error);
-    return NextResponse.json(
-      { success: false, message: error.message ?? 'Failed to update submission' },
-      { status: 500 }
-    );
+    return NextResponse.json(data);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
   }
 }
