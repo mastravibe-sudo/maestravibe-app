@@ -170,13 +170,8 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
   const [showSidebar,    setShowSidebar]    = useState(false);
   const [viewMode,       setViewMode]       = useState<'grid' | 'list'>('grid');
 
-  const [view, setView] = useState<'home' | 'shop'>(() => {
-    if (typeof window !== 'undefined') {
-      const p = new URLSearchParams(window.location.search);
-      if (p.get('category') || p.get('search')) return 'shop';
-    }
-    return 'home';
-  });
+  // ✅ FIX: 'home' se shuru karo — window.location SSR mein crash karta tha
+  const [view, setView] = useState<'home' | 'shop'>('home');
 
   const [selectedProduct,    setSelectedProduct]    = useState<Product | null>(null);
   const [selectedColor,      setSelectedColor]      = useState('');
@@ -449,14 +444,14 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
         7-day returns &nbsp;&middot;&nbsp; Free delivery above Rs. 1,500 &nbsp;&middot;&nbsp; Cash on Delivery &nbsp;&middot;&nbsp; 03274050806
       </div>
 
-      {/* ═══ HOME VIEW ═══ */}
+      {/* HOME VIEW */}
       {view === 'home' && (
         <>
-          <section className="relative w-full h-72 md:h-[460px] overflow-hidden">
+          <section className="relative w-full h-72 md:h-115 overflow-hidden">
             {SLIDES.map((slide, i) => (
               <div key={i} className={`absolute inset-0 transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0'}`}>
                 <img src={slide.image} alt={slide.title} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent flex items-center px-8 md:px-20">
+                <div className="absolute inset-0 bg-linear-to-r from-black/70 via-black/30 to-transparent flex items-center px-8 md:px-20">
                   <div className="max-w-lg">
                     <p className="text-violet-300 text-xs font-bold uppercase tracking-widest mb-2">MaestraVibe</p>
                     <h2 className="text-white text-4xl md:text-6xl font-black leading-tight">{slide.title}</h2>
@@ -587,7 +582,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
             </div>
           </section>
 
-          <section className="py-16 bg-gradient-to-r from-violet-700 to-violet-900">
+          <section className="py-16 bg-linear-to-r from-violet-700 to-violet-900">
             <div className="max-w-2xl mx-auto px-4 text-center">
               <h2 className="text-3xl md:text-4xl font-black text-white mb-3">Explore All Products</h2>
               <p className="text-violet-200 mb-8">Thousands of products — fashion to electronics — all in one place</p>
@@ -602,7 +597,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
         </>
       )}
 
-      {/* ═══ SHOP VIEW ═══ */}
+      {/* SHOP VIEW */}
       {view === 'shop' && (
         <>
           <div className="max-w-7xl mx-auto px-4 pt-5 pb-2 flex items-center gap-2 text-xs text-gray-500">
@@ -648,7 +643,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
                 <button
                   key={cat.value}
                   onClick={() => navigateTo(cat.value, searchQuery)}
-                  className={`flex-shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  className={`shrink-0 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
                     activeCategory === cat.value
                       ? 'bg-violet-600 text-white shadow-sm shadow-violet-200'
                       : 'bg-white text-gray-600 hover:bg-violet-50 hover:text-violet-600 border border-gray-200'
@@ -844,9 +839,9 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
         </>
       )}
 
-      {/* ═══ PRODUCT MODAL ═══ */}
+      {/* PRODUCT MODAL */}
       {selectedProduct && (
-        <div className="fixed inset-0 bg-black/80 z-[55] flex items-end md:items-center justify-center p-0 md:p-4">
+        <div className="fixed inset-0 bg-black/80 z-55 flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white w-full md:max-w-4xl rounded-t-3xl md:rounded-3xl overflow-hidden max-h-[94vh] overflow-y-auto">
             <div className="flex flex-col md:flex-row">
               <div className="md:w-1/2 p-5 bg-gray-50">
@@ -869,7 +864,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
               <div className="md:w-1/2 p-5 md:p-7">
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <span className="text-xs uppercase text-violet-500 font-bold tracking-wider capitalize">{selectedProduct.category}</span>
+                    <span className="text-xs uppercase text-violet-500 font-bold tracking-wider">{selectedProduct.category}</span>
                     <h1 className="text-xl md:text-2xl font-black mt-0.5 text-gray-900">{selectedProduct.name}</h1>
                   </div>
                   <button onClick={() => setSelectedProduct(null)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors ml-2 shrink-0">
@@ -921,9 +916,9 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
         </div>
       )}
 
-      {/* ═══ CART ═══ */}
+      {/* CART */}
       {showCart && (
-        <div className="fixed inset-0 bg-black/70 z-[60] flex justify-end" onClick={() => { setShowCart(false); onCartClose?.(); }}>
+        <div className="fixed inset-0 bg-black/70 z-60 flex justify-end" onClick={() => { setShowCart(false); onCartClose?.(); }}>
           <div className="bg-white w-full max-w-md h-full flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="p-5 border-b flex justify-between items-center bg-white">
               <h2 className="text-lg font-black text-gray-900">
@@ -994,9 +989,9 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
         </div>
       )}
 
-      {/* ═══ CHECKOUT ═══ */}
+      {/* CHECKOUT */}
       {showCheckout && (
-        <div className="fixed inset-0 bg-black/80 z-[70] flex items-end md:items-center justify-center">
+        <div className="fixed inset-0 bg-black/80 z-70 flex items-end md:items-center justify-center">
           <div className="bg-white w-full md:max-w-lg rounded-t-3xl md:rounded-3xl max-h-[96vh] flex flex-col overflow-hidden">
             <div className="p-5 border-b flex items-center justify-between shrink-0 bg-white">
               <div className="flex items-center gap-3">
@@ -1106,9 +1101,9 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
         </div>
       )}
 
-      {/* ═══ ORDER SUCCESS ═══ */}
+      {/* ORDER SUCCESS */}
       {showSuccess && (
-        <div className="fixed inset-0 bg-black/90 z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/90 z-80 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-10 max-w-sm w-full text-center shadow-2xl">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5 text-4xl">✅</div>
             <h1 className="text-3xl font-black text-green-600 mb-2">Order Placed!</h1>
@@ -1129,9 +1124,9 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
         </div>
       )}
 
-      {/* ═══ NEWSLETTER ═══ */}
+      {/* NEWSLETTER */}
       {showNewsletter && (
-        <div className="fixed inset-0 bg-black/80 z-[80] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-80 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
             {!newsletterDone ? (
               <>

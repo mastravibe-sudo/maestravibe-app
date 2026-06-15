@@ -687,13 +687,13 @@ export default function AdminDashboard() {
       {viewOrder      && <OrderDetailModal order={viewOrder} onClose={() => setViewOrder(undefined)} />}
       {showEmailModal && <BulkEmailModal subscribers={subscribers} onClose={() => setShowEmailModal(false)} />}
 
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-violet-50/30">
+      <div className="min-h-screen bg-linear-to-br from-gray-50 to-violet-50/30">
 
         {/* Top Nav */}
         <div className="bg-white border-b border-gray-100 sticky top-0 z-30 shadow-sm">
           <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-violet-800 rounded-2xl flex items-center justify-center shadow-md shadow-violet-200">
+              <div className="w-10 h-10 bg-linear-to-br from-violet-600 to-violet-800 rounded-2xl flex items-center justify-center shadow-md shadow-violet-200">
                 <span className="text-white font-black text-sm">MV</span>
               </div>
               <div>
@@ -842,7 +842,7 @@ export default function AdminDashboard() {
                                   </div>
                               }
                             </td>
-                            <td className="px-4 py-3.5 font-semibold text-gray-800 max-w-[160px]">
+                            <td className="px-4 py-3.5 font-semibold text-gray-800 max-w-40">
                               <p className="truncate">{p.name}</p>
                             </td>
                             <td className="px-4 py-3.5 font-bold text-violet-700 whitespace-nowrap">
@@ -853,7 +853,7 @@ export default function AdminDashboard() {
                             </td>
                             <td className="px-4 py-3.5 whitespace-nowrap">
                               {itemProfit !== null ? (
-                                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${itemProfit >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
+                                <span className={'text-xs font-bold px-2.5 py-1 rounded-full ' + (itemProfit >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600')}>
                                   {itemProfit >= 0 ? '+' : ''}Rs. {itemProfit.toLocaleString()}
                                 </span>
                               ) : <span className="text-gray-300 text-xs">—</span>}
@@ -871,7 +871,7 @@ export default function AdminDashboard() {
                                 {(p.colors?.length ?? 0) > 5 && <span className="text-xs text-gray-400 self-center">+{p.colors!.length - 5}</span>}
                               </div>
                             </td>
-                            <td className="px-4 py-3.5 text-gray-500 text-xs max-w-[120px]">
+                            <td className="px-4 py-3.5 text-gray-500 text-xs max-w-30">
                               <p className="truncate">{p.sizes?.join(', ') || '—'}</p>
                             </td>
                             <td className="px-4 py-3.5">
@@ -1032,7 +1032,7 @@ export default function AdminDashboard() {
                           <td className="px-4 py-3.5">
                             <span className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full font-semibold">{s.type}</span>
                           </td>
-                          <td className="px-4 py-3.5 text-gray-500 text-xs max-w-[150px]">
+                          <td className="px-4 py-3.5 text-gray-500 text-xs max-w-37.5">
                             <p className="truncate">{s.subject || '—'}</p>
                           </td>
                           <td className="px-4 py-3.5"><StatusBadge status={s.status} /></td>
