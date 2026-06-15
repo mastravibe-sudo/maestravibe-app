@@ -12,12 +12,12 @@ function getSupabase() {
 // PATCH /api/orders/[id]
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }  // Promise add kiya
 ) {
   try {
     const supabase = getSupabase();
     const body = await req.json();
-    const { id } = params;
+    const { id } = await params;  // await add kiya
 
     const { data, error } = await supabase
       .from('orders')
@@ -40,15 +40,16 @@ export async function PATCH(
 // DELETE /api/orders/[id]
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }  // Promise add kiya
 ) {
   try {
     const supabase = getSupabase();
+    const { id } = await params;  // await add kiya
 
     const { error } = await supabase
       .from('orders')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       return NextResponse.json({ message: error.message }, { status: 500 });

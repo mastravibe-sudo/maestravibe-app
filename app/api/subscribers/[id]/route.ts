@@ -12,15 +12,16 @@ function getSupabase() {
 // DELETE /api/subscribers/[id]
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }  // Promise add kiya
 ) {
   try {
     const supabase = getSupabase();
+    const { id } = await params;  // await add kiya
 
     const { error } = await supabase
       .from('subscribers')
       .delete()
-      .eq('id', params.id);
+      .eq('id', id);
 
     if (error) {
       return NextResponse.json({ message: error.message }, { status: 500 });

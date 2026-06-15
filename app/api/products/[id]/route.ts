@@ -1,4 +1,3 @@
-// app/api/products/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -12,12 +11,12 @@ function getSupabase() {
 // PATCH /api/products/[id]
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }  // Promise add kiya
 ) {
   try {
     const supabase = getSupabase();
     const body = await req.json();
-    const { id } = params;
+    const { id } = await params;  // await add kiya
 
     if (!id) {
       return NextResponse.json({ message: 'Product ID is required' }, { status: 400 });
@@ -44,11 +43,11 @@ export async function PATCH(
 // DELETE /api/products/[id]
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }  // Promise add kiya
 ) {
   try {
     const supabase = getSupabase();
-    const { id } = params;
+    const { id } = await params;  // await add kiya
 
     if (!id) {
       return NextResponse.json({ message: 'Product ID is required' }, { status: 400 });
