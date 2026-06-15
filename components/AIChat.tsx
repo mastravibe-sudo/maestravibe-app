@@ -139,7 +139,7 @@ TERE KAAM:
       {/* ── FLOATING BUTTON ── */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-[90] bg-rose-600 hover:bg-rose-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-2xl transition-all hover:scale-110 active:scale-95"
+        className="fixed bottom-6 right-6 z-90 bg-rose-600 hover:bg-rose-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-2xl transition-all hover:scale-110 active:scale-95"
         title="AI Assistant se poochein"
       >
         <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,7 +155,7 @@ TERE KAAM:
 
       {/* ── CHAT WINDOW ── */}
       {open && (
-        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-[95] w-full md:w-96 h-[100dvh] md:h-[600px] bg-white md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-100">
+        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-95 w-full md:w-96 h-dvh md:h-150 bg-white md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-100">
 
           {/* Header */}
           <div className="bg-rose-600 px-4 py-3 flex items-center justify-between shrink-0">
