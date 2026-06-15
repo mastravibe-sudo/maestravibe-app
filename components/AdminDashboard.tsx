@@ -210,7 +210,15 @@ function ProductModal({ product, onClose, onSaved }: {
           body: file,
         });
 
-        const d = await res.json();
+        // ✅ FIX: Safely parse JSON response
+        let d: any;
+        try {
+          d = await res.json();
+        } catch {
+          const text = await res.text();
+          throw new Error(`Upload error: ${text || 'Unknown error'}`);
+        }
+
         if (!res.ok) throw new Error(d.message ?? 'Upload failed');
         imageUrls.push(d.url);
       }
@@ -238,7 +246,14 @@ function ProductModal({ product, onClose, onSaved }: {
         body: JSON.stringify(payload)
       });
 
-      const data = await res.json();
+      // ✅ FIX: Safely parse JSON response
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text();
+        throw new Error(`API error: ${text || 'Unknown error'}`);
+      }
 
       if (!res.ok) {
         throw new Error(data.message || 'Save failed');
