@@ -9,24 +9,35 @@ export default function AdminLogin() {
   const router = useRouter();
 
   const submit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
-  setError('');
+    e.preventDefault();
+    setLoading(true);
+    setError('');
 
-  const res = await fetch('/api/admin-login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-  });
+    try {
+      const res = await fetch('/api/admin-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
 
-  if (res.ok) {
-    router.push('/admin');
-  } else {
-    setError('Galat password daala hai');
-  }
+      if (res.ok) {
+        router.push('/admin');
+      } else {
+        const data = await res.json();
+        if (res.status === 429) {
+          setError(`🔒 Too many attempts. ${data.message}`);
+        } else if (res.status === 401) {
+          setError('❌ Password incorrect. Please try again.');
+        } else {
+          setError(data.message || 'Login failed. Please try again.');
+        }
+      }
+    } catch (err) {
+      setError('Connection error. Please try again.');
+    }
 
-  setLoading(false);
-};
+    setLoading(false);
+  };
 
   return (
     <div className="min-h-screen bg-linear-to-br from-violet-50 to-purple-100 flex items-center justify-center p-4">
@@ -50,7 +61,8 @@ export default function AdminLogin() {
               placeholder="••••••••"
               required
               autoFocus
-              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-violet-500 transition-colors"
+              disabled={loading}
+              className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-violet-500 transition-colors disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
           {error && (
@@ -60,7 +72,7 @@ export default function AdminLogin() {
           )}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !password}
             className="w-full bg-violet-600 hover:bg-violet-700 disabled:bg-violet-400 text-white py-3.5 rounded-xl font-bold text-sm transition-all active:scale-[0.98]"
           >
             {loading ? 'Verify ho raha hai...' : 'Login Karo →'}
