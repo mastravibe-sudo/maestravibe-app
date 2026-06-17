@@ -146,7 +146,7 @@ export function speakText(
 
     const utterance = new SpeechSynthesisUtterance(text);
 
-    utterance.language = config.language || 'ur-PK';
+    utterance.lang = config.language || 'ur-PK';
     utterance.rate = config.rate || 1;
     utterance.pitch = config.pitch || 1;
     utterance.volume = config.volume || 1;
