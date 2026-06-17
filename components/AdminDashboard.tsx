@@ -1083,10 +1083,3 @@ export default function AdminDashboard() {
   );
 }
 
-function setError(arg0: string) {
-  throw new Error('Function not implemented.');
-}
-function setSaving(arg0: boolean) {
-  throw new Error('Function not implemented.');
-}
-
