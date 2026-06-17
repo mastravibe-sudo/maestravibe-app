@@ -10,7 +10,10 @@ const RATE_LIMIT = {
 };
 
 function getRateLimitKey(req: NextRequest): string {
-  return req.ip || "unknown";
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  const realIp = req.headers.get("x-real-ip");
+
+  return forwardedFor?.split(",")[0] || realIp || "unknown";
 }
 
 function checkRateLimit(key: string): { allowed: boolean; remaining: number } {
