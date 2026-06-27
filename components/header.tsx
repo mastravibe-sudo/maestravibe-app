@@ -1,8 +1,11 @@
+// components/header.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import { useMarket } from '@/lib/market-context';
+import type { Market } from '@/lib/market';
 
 const CATEGORIES = [
   { name: 'All',         value: 'all'          },
@@ -39,7 +42,6 @@ function SearchIcon() {
     </svg>
   );
 }
-
 function CartIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,20 +49,13 @@ function CartIcon() {
     </svg>
   );
 }
-
 function ChevronDown({ open }: { open: boolean }) {
   return (
-    <svg
-      className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`}
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
+    <svg className={`w-3.5 h-3.5 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
     </svg>
   );
 }
-
 function MenuIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -68,7 +63,6 @@ function MenuIcon() {
     </svg>
   );
 }
-
 function CloseIcon() {
   return (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,7 +70,6 @@ function CloseIcon() {
     </svg>
   );
 }
-
 function WhatsAppIcon() {
   return (
     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -86,7 +79,62 @@ function WhatsAppIcon() {
   );
 }
 
+// ── Market Switcher ────────────────────────────────────────────
+function MarketSwitcher() {
+  const { market, setMarket } = useMarket();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const options: { value: Market; flag: string; label: string }[] = [
+    { value: 'pk', flag: '🇵🇰', label: 'Pakistan' },
+    { value: 'us', flag: '🇺🇸', label: 'USA' },
+  ];
+
+  const current = options.find((o) => o.value === market)!;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2 border-gray-200 hover:border-violet-400 bg-white text-sm font-semibold transition-all"
+        title="Switch market"
+      >
+        <span className="text-base">{current.flag}</span>
+        <span className="hidden sm:inline text-gray-700">{current.label}</span>
+        <ChevronDown open={open} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full right-0 mt-1 w-36 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => { setMarket(opt.value); setOpen(false); window.location.reload(); }}
+              className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-violet-50 hover:text-violet-700 transition-colors ${
+                market === opt.value ? 'text-violet-600 font-semibold bg-violet-50' : 'text-gray-700'
+              }`}
+            >
+              <span className="text-base">{opt.flag}</span>
+              <span>{opt.label}</span>
+              {market === opt.value && <span className="ml-auto text-xs">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Header({ cartCount = 0, onCartClick }: Props) {
+  const { market, config } = useMarket();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [catOpen,    setCatOpen]    = useState(false);
   const [scrolled,   setScrolled]   = useState(false);
@@ -103,9 +151,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (catRef.current && !catRef.current.contains(e.target as Node)) {
-        setCatOpen(false);
-      }
+      if (catRef.current && !catRef.current.contains(e.target as Node)) setCatOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -113,17 +159,11 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (search.trim()) {
-      router.push(`/?search=${encodeURIComponent(search.trim())}`);
-    }
+    if (search.trim()) router.push(`/?search=${encodeURIComponent(search.trim())}`);
   };
 
   const handleCategory = (value: string) => {
-    if (value === 'all') {
-      router.push('/');
-    } else {
-      router.push(`/?category=${value}`);
-    }
+    router.push(value === 'all' ? '/' : `/?category=${value}`);
     setCatOpen(false);
     setMobileOpen(false);
   };
@@ -135,17 +175,17 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
     { href: '/policy',   label: 'Policy'   },
   ];
 
+  const announcementText = market === 'pk'
+    ? `Free delivery above Rs. 2,000 · Cash on Delivery · ${config.phone}`
+    : `Free shipping above $50 · Secure checkout · ${config.phone}`;
+
   return (
-    <header
-      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        scrolled
-          ? 'bg-white/95 backdrop-blur-md shadow-md'
-          : 'bg-white border-b border-gray-100'
-      }`}
-    >
+    <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${
+      scrolled ? 'bg-white/95 backdrop-blur-md shadow-md' : 'bg-white border-b border-gray-100'
+    }`}>
       {/* Announcement bar */}
       <div className="bg-violet-700 text-white text-xs py-2 text-center tracking-wide font-medium">
-        Free delivery on orders above Rs. 2,000 &nbsp;&middot;&nbsp; Cash on Delivery available nationwide
+        {announcementText}
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-3">
@@ -161,44 +201,31 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
           {/* Search — desktop */}
           <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-2xl mx-4">
             <div className="flex w-full rounded-xl overflow-hidden border-2 border-gray-200 focus-within:border-violet-500 transition-colors">
-
-              {/* Category dropdown */}
               <div className="relative" ref={catRef}>
                 <button
                   type="button"
                   onClick={() => setCatOpen(!catOpen)}
                   className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 transition border-r border-gray-200 whitespace-nowrap"
                 >
-                  Categories
-                  <ChevronDown open={catOpen} />
+                  Categories <ChevronDown open={catOpen} />
                 </button>
                 {catOpen && (
                   <div className="absolute top-full left-0 mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-72 overflow-y-auto">
                     {CATEGORIES.map(c => (
-                      <button
-                        key={c.value}
-                        onClick={() => handleCategory(c.value)}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition"
-                      >
+                      <button key={c.value} onClick={() => handleCategory(c.value)}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition">
                         {c.name}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-
-              {/* Search input */}
               <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
+                type="text" value={search} onChange={e => setSearch(e.target.value)}
                 placeholder="Search products, brands, categories..."
                 className="flex-1 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none bg-white"
               />
-              <button
-                type="submit"
-                className="px-4 bg-violet-600 hover:bg-violet-700 text-white transition"
-              >
+              <button type="submit" className="px-4 bg-violet-600 hover:bg-violet-700 text-white transition">
                 <SearchIcon />
               </button>
             </div>
@@ -206,40 +233,32 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
 
           {/* Right actions */}
           <div className="flex items-center gap-2 ml-auto md:ml-0">
-
-            {/* Nav links — desktop */}
             <nav className="hidden md:flex items-center gap-1">
               {navLinks.map(l => (
-                <Link
-                  key={l.href}
-                  href={l.href}
+                <Link key={l.href} href={l.href}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                    pathname === l.href
-                      ? 'text-violet-600 bg-violet-50'
-                      : 'text-gray-600 hover:text-violet-600 hover:bg-gray-50'
-                  }`}
-                >
+                    pathname === l.href ? 'text-violet-600 bg-violet-50' : 'text-gray-600 hover:text-violet-600 hover:bg-gray-50'
+                  }`}>
                   {l.label}
                 </Link>
               ))}
             </nav>
 
-            {/* WhatsApp */}
-            <a
-              href="https://wa.me/923274050806"
-              target="_blank"
-              rel="noreferrer"
-              className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition"
-              title="WhatsApp"
-            >
-              <WhatsAppIcon />
-            </a>
+            {/* Market Switcher */}
+            <MarketSwitcher />
+
+            {/* WhatsApp — PK only */}
+            {market === 'pk' && (
+              <a href={`https://wa.me/${config.whatsapp}`} target="_blank" rel="noreferrer"
+                className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition"
+                title="WhatsApp">
+                <WhatsAppIcon />
+              </a>
+            )}
 
             {/* Cart */}
-            <button
-              onClick={onCartClick}
-              className="relative flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl transition font-medium text-sm"
-            >
+            <button onClick={onCartClick}
+              className="relative flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl transition font-medium text-sm">
               <CartIcon />
               <span className="hidden sm:inline">Cart</span>
               {cartCount > 0 && (
@@ -249,47 +268,32 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
               )}
             </button>
 
-            {/* Mobile menu toggle */}
-            <button
-              onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
-            >
+            {/* Mobile menu */}
+            <button onClick={() => setMobileOpen(!mobileOpen)}
+              className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
               {mobileOpen ? <CloseIcon /> : <MenuIcon />}
             </button>
           </div>
         </div>
 
         {/* Mobile search */}
-        <form
-          onSubmit={handleSearch}
-          className="md:hidden mt-3 flex rounded-xl overflow-hidden border-2 border-gray-200 focus-within:border-violet-500 transition-colors"
-        >
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+        <form onSubmit={handleSearch} className="md:hidden mt-3 flex rounded-xl overflow-hidden border-2 border-gray-200 focus-within:border-violet-500 transition-colors">
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search products..."
-            className="flex-1 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="px-4 bg-violet-600 text-white hover:bg-violet-700 transition"
-          >
+            className="flex-1 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none" />
+          <button type="submit" className="px-4 bg-violet-600 text-white hover:bg-violet-700 transition">
             <SearchIcon />
           </button>
         </form>
       </div>
 
-      {/* Category pill strip */}
+      {/* Category strip */}
       <div className="border-t border-gray-100 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-1.5 overflow-x-auto py-2 scrollbar-hide">
             {CATEGORIES.map(c => (
-              <button
-                key={c.value}
-                onClick={() => handleCategory(c.value)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold text-gray-600 hover:bg-violet-100 hover:text-violet-700 transition whitespace-nowrap"
-              >
+              <button key={c.value} onClick={() => handleCategory(c.value)}
+                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold text-gray-600 hover:bg-violet-100 hover:text-violet-700 transition whitespace-nowrap">
                 {c.name}
               </button>
             ))}
@@ -301,26 +305,20 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
       {mobileOpen && (
         <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-1">
           {navLinks.map(l => (
-            <Link
-              key={l.href}
-              href={l.href}
-              onClick={() => setMobileOpen(false)}
-              className="block px-4 py-3 rounded-xl text-gray-700 hover:bg-violet-50 hover:text-violet-600 font-medium transition"
-            >
+            <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)}
+              className="block px-4 py-3 rounded-xl text-gray-700 hover:bg-violet-50 hover:text-violet-600 font-medium transition">
               {l.label}
             </Link>
           ))}
+          <div className="pt-3 border-t border-gray-100">
+            <MarketSwitcher />
+          </div>
           <div className="pt-2 border-t border-gray-100 mt-2">
-            <p className="text-xs text-gray-400 px-4 mb-2 font-semibold uppercase tracking-wide">
-              Categories
-            </p>
+            <p className="text-xs text-gray-400 px-4 mb-2 font-semibold uppercase tracking-wide">Categories</p>
             <div className="grid grid-cols-3 gap-1">
               {CATEGORIES.map(c => (
-                <button
-                  key={c.value}
-                  onClick={() => handleCategory(c.value)}
-                  className="text-left px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition"
-                >
+                <button key={c.value} onClick={() => handleCategory(c.value)}
+                  className="text-left px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition">
                   {c.name}
                 </button>
               ))}

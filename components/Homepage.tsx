@@ -3,8 +3,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import AstroBhai from '@/components/AstroBhai';
 
-const AIChat = dynamic(() => import('@/components/AIChat'), { ssr: false });
+const AIChat = dynamic(() => import('@/components/AstroBhai'), { ssr: false });
 
 interface Product {
   _id: string;
@@ -1174,7 +1175,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
         </div>
       )}
 
-      <AIChat products={allProducts} onOpenProduct={openProduct} />
+      <AstroBhai products={allProducts} onOpenProduct={openProduct} />
     </main>
   );
 }

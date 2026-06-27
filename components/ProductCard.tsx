@@ -1,8 +1,9 @@
 'use client';
 
-// components/ProductCard.tsx
 import Link from 'next/link';
 import type { Product } from '@/lib/supabase';
+import { displayPrice } from '@/lib/market';
+import { useMarket } from '@/lib/market-context';
 
 interface Props {
   product: Product;
@@ -11,6 +12,7 @@ interface Props {
 
 export default function ProductCard({ product, onAddToCart }: Props) {
   const image = product.images?.[0];
+  const { market } = useMarket();
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
@@ -37,17 +39,20 @@ export default function ProductCard({ product, onAddToCart }: Props) {
         <span className="text-xs text-purple-500 font-medium uppercase tracking-wide">
           {product.category}
         </span>
+        
         <Link href={`/product/${product.id}`}>
           <h3 className="text-gray-800 font-semibold mt-1 hover:text-purple-700 transition-colors line-clamp-2">
             {product.name}
           </h3>
         </Link>
-        <p className="text-gray-700 font-bold mt-2">
-          Rs. {Number(product.price).toLocaleString()}
+
+        {/* Price */}
+        <p className="text-gray-700 font-bold mt-2 text-xl">
+          {displayPrice(product.price, market)}
         </p>
 
-        {/* Colors preview */}
-        {product.colors?.length > 0 && (
+        {/* Colors Preview - Fixed */}
+        {product.colors && product.colors.length > 0 && (
           <div className="flex gap-1 mt-2">
             {product.colors.slice(0, 4).map((c) => (
               <span

@@ -136,7 +136,7 @@ function PlusIcon() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// PRODUCT FORM MODAL
+// PRODUCT FORM MODAL (FIXED & COMPLETE)
 // ══════════════════════════════════════════════════════════════
 function ProductModal({ product, onClose, onSaved }: {
   product?: Product;
@@ -144,37 +144,48 @@ function ProductModal({ product, onClose, onSaved }: {
   onSaved: () => void;
 }) {
   const isEdit = !!product;
+
   const [form, setForm] = useState({
-    name:         product?.name              ?? '',
-    price:        product?.price?.toString() ?? '',
-    actual_price: (product as any)?.actual_price?.toString() ?? '',
-    category:     product?.category          ?? 'women',
-    description:  product?.description       ?? '',
-    colors:       product?.colors            ?? [] as string[],
-    sizes:        product?.sizes?.join(', ') ?? '',
+    name:                 product?.name              ?? '',
+    price:                product?.price?.toString() ?? '',
+    actual_price:         (product as any)?.actual_price?.toString() ?? '',
+    category:             product?.category          ?? 'women',
+    description:          product?.description       ?? '',
+    colors:               product?.colors            ?? [] as string[],
+    sizes:                product?.sizes?.join(', ') ?? '',
+    owner_type:           (product as any)?.owner_type ?? 'mestravibe' as 'mestravibe' | 'merchant',
+    merchant_name:        (product as any)?.merchant_name ?? '',
+    merchant_logo:        (product as any)?.merchant_logo ?? '',
+    market_availability:  (product as any)?.market_availability ?? 'both' as 'pk' | 'us' | 'both',
   });
+
   const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [previews,   setPreviews]   = useState<string[]>(product?.images ?? []);
-  const [saving,     setSaving]     = useState(false);
-  const [error,      setError]      = useState('');
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [error, setError] = useState<string>('');
+  const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handle = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-    setForm(p => ({ ...p, [e.target.name]: e.target.value }));
+  const handle = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setForm(p => ({ ...p, [name]: value }));
+  };
 
   const onFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
     setImageFiles(files);
-    setPreviews(files.map(f => URL.createObjectURL(f)));
+    const newPreviews = files.map(file => URL.createObjectURL(file));
+    setPreviews(newPreviews);
   };
 
   const split = (v: string) => v.split(',').map(s => s.trim()).filter(Boolean);
 
+  // Live profit preview based on current form values
   const profit = form.price && form.actual_price
     ? Number(form.price) - Number(form.actual_price)
     : null;
 
-   const submit = async (e: React.FormEvent) => {
+      const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!form.name || !form.price) {
@@ -182,23 +193,17 @@ function ProductModal({ product, onClose, onSaved }: {
       return;
     }
 
-    // ← Edit ke liye zaroori safety check
-    if (isEdit && !product?.id) {
-      setError('Product ID not found. Please refresh and try again.');
-      return;
-    }
-
     setSaving(true);
     setError('');
 
     try {
-      const imageUrls: string[] = isEdit && imageFiles.length === 0
-        ? (product?.images ?? [])
+      let imageUrls: string[] = isEdit && imageFiles.length === 0 
+        ? (product?.images ?? []) 
         : [];
 
-      // New images upload karo
+      // Upload new images
       for (const file of imageFiles) {
-        const safeName  = sanitizeFileName(file.name);
+        const safeName = sanitizeFileName(file.name);
         const uniqueName = `${Date.now()}_${safeName}`;
 
         const res = await fetch('/api/upload', {
@@ -210,65 +215,70 @@ function ProductModal({ product, onClose, onSaved }: {
           body: file,
         });
 
-        // ✅ FIX: Safely parse JSON response
-        let d: any;
-        try {
-          d = await res.json();
-        } catch {
+        if (!res.ok) {
           const text = await res.text();
-          throw new Error(`Upload error: ${text || 'Unknown error'}`);
+          throw new Error(`Upload failed: ${text}`);
         }
 
-        if (!res.ok) throw new Error(d.message ?? 'Upload failed');
-        imageUrls.push(d.url);
+        const uploadData = await res.json();
+        imageUrls.push(uploadData.url);
       }
 
       const payload = {
-        name:         form.name,
-        price:        Number(form.price),
+        name: form.name,
+        price: Number(form.price),
         actual_price: form.actual_price ? Number(form.actual_price) : null,
-        category:     form.category,
-        description:  form.description,
-        colors:       form.colors,
-        sizes:        split(form.sizes),
-        images:       imageUrls,
+        category: form.category,
+        description: form.description,
+        colors: form.colors,
+        sizes: split(form.sizes),
+        images: imageUrls,
+        owner_type: form.owner_type,
+        merchant_name: form.owner_type === 'merchant' ? form.merchant_name : null,
+        market_availability: form.market_availability,
       };
 
-      const url = isEdit 
-        ? `/api/products/${product!.id}` 
-        : '/api/products';
-
+      const url = isEdit ? `/api/products/${product!.id}` : '/api/products';
       const method = isEdit ? 'PATCH' : 'POST';
 
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
-      // ✅ FIX: Safely parse JSON response
+      // ✅ Safe Response Handling
       let data: any;
-      try {
+      const contentType = res.headers.get('content-type');
+
+      if (contentType && contentType.includes('application/json')) {
         data = await res.json();
-      } catch {
+      } else {
         const text = await res.text();
-        throw new Error(`API error: ${text || 'Unknown error'}`);
+        throw new Error(`Server error: ${text || 'Unknown error'}`);
       }
 
       if (!res.ok) {
-        throw new Error(data.message || 'Save failed');
+        throw new Error(data?.error || data?.message || 'Save failed');
       }
 
-      onSaved(); 
+      alert(isEdit ? 'Product updated successfully!' : 'Product added successfully!');
+      onSaved();
       onClose();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong';
-      setError(msg);
-      console.error("Save Error:", err);
+    } catch (err: any) {
+      console.error('Submit Error:', err);
+      setError(err.message || 'Something went wrong while saving product');
     } finally {
       setSaving(false);
     }
   };
+
+  // Cleanup image previews
+  useEffect(() => {
+    return () => {
+      previews.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [previews]);
 
   return (
     <>
@@ -288,6 +298,71 @@ function ProductModal({ product, onClose, onSaved }: {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Product Name <span className="text-red-400">*</span></label>
               <input name="name" value={form.name} onChange={handle} required placeholder="e.g. Floral Kurta" className={INPUT} />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Ownership</label>
+              <div className="flex gap-3">
+                {[
+                  { value: 'mestravibe', label: '🏷️ MaestraVibe Owned' },
+                  { value: 'merchant',   label: '🏪 Merchant Product'  },
+                ].map(opt => (
+                  <label key={opt.value} className={`flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-all ${
+                    form.owner_type === opt.value
+                      ? 'border-violet-500 bg-violet-50'
+                      : 'border-gray-200 hover:border-violet-200'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="owner_type"
+                      value={opt.value}
+                      checked={form.owner_type === opt.value}
+                      onChange={e => setForm(p => ({ ...p, owner_type: e.target.value as 'mestravibe' | 'merchant' }))}
+                      className="hidden"
+                    />
+                    <span className="text-sm font-medium text-gray-700">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Merchant Name — show only if merchant */}
+            {form.owner_type === 'merchant' && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Merchant Name</label>
+                <input
+                  name="merchant_name"
+                  value={form.merchant_name ?? ''}
+                  onChange={e => setForm(p => ({ ...p, merchant_name: e.target.value }))}
+                  placeholder="e.g. XYZ Store"
+                  className={INPUT}
+                />
+              </div>
+            )}
+
+            {/* Market Availability */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Market Availability</label>
+              <div className="flex gap-2">
+                {[
+                  { value: 'pk',   label: '🇵🇰 Pakistan' },
+                  { value: 'us',   label: '🇺🇸 USA'      },
+                  { value: 'both', label: '🌍 Both'       },
+                ].map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setForm(p => ({ ...p, market_availability: opt.value as 'pk' | 'us' | 'both' }))}
+                    className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all ${
+                      form.market_availability === opt.value
+                        ? 'border-violet-500 bg-violet-600 text-white'
+                        : 'border-gray-200 text-gray-600 hover:border-violet-300'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -1082,4 +1157,3 @@ export default function AdminDashboard() {
     </>
   );
 }
-

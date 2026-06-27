@@ -1,30 +1,53 @@
 // lib/supabase.ts
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
-// ✅ FIX: Handle missing environment variables gracefully
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Environment Variables
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Only create client if variables are available, otherwise create a dummy
-export const supabase = 
-  supabaseUrl && supabaseAnonKey 
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error("❌ Supabase environment variables missing!");
+}
 
-// ==================== TYPES ====================
+// Correct Client Creator
+export function createClient() {
+  return createSupabaseClient(supabaseUrl, supabaseAnonKey);
+}
 
-export type Product = {
+// Browser Client (optional)
+export const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey);
+
+// ====================== TYPES ======================
+export interface Product {
   id: string;
   name: string;
   price: number;
+  actual_price?: number;
   category: string;
-  actual_price?: number;   // ← yeh add karo
-  description: string;
-  colors: string[];
-  sizes: string[];
+  description?: string;
+  colors?: string[];
+  sizes?: string[];
   images: string[];
+  owner_type?: 'mestravibe' | 'merchant';
+  merchant_name?: string;
+  merchant_logo?: string;
+  market_availability?: 'pk' | 'us' | 'both';
   created_at?: string;
-};
+}
+
+export interface Review {
+  id: string;
+  product_id: string;
+  order_id?: string;
+  customer_name: string;
+  customer_email?: string;
+  stars: number;
+  body?: string;
+  photo_url?: string;
+  verified: boolean;
+  approved: boolean;
+  created_at: string;
+}
 
 export type OrderItem = {
   name: string;
@@ -33,6 +56,7 @@ export type OrderItem = {
   selectedColor?: string;
   selectedSize?: string;
   image?: string;
+  productId?: string;
 };
 
 export type Order = {
@@ -47,7 +71,7 @@ export type Order = {
   };
   items: OrderItem[];
   total: number;
-  status: 'new' | 'pending' | 'completed';
+  status: 'new' | 'pending' | 'completed' | 'delivered';
   created_at: string;
 };
 

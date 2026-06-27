@@ -1,44 +1,31 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import Footer from "@/components/footer";
-import LayoutWrapper from "@/components/LayoutWrapper";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
+// app/layout.tsx
+import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
+import './globals.css';
+import { MarketProvider } from '@/lib/market-context';
+import { getMarketFromCookie } from '@/lib/market';
+import LayoutWrapper from '@/components/LayoutWrapper';
 
 export const metadata: Metadata = {
-  title: "Maestra Vibe",
-  description: "Innovating digital experiences",
-  icons: {
-    icon: "/favicon.ico",
-  },
+  title: 'MaestraVibe',
+  description: 'Premium online shopping',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const cookieStore = await cookies();
+  const marketCookie = cookieStore.get('mv_market')?.value;
+  const initialMarket = getMarketFromCookie(marketCookie);
+
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable}`}
-      suppressHydrationWarning
-    >
-      <body
-        className="min-h-screen flex flex-col antialiased"
-        suppressHydrationWarning
-      >
-        <LayoutWrapper>
-          {children}
-        </LayoutWrapper>
-        <Footer />
+    <html lang="en">
+      <body>
+        <MarketProvider initialMarket={initialMarket}>
+          <LayoutWrapper>{children}</LayoutWrapper>
+        </MarketProvider>
       </body>
     </html>
   );

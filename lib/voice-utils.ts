@@ -1,197 +1,173 @@
-/**
- * Voice/Speech Utilities
- * Handles voice recognition and text-to-speech
- */
+// lib/voice-utils.ts  — REPLACE your existing file with this
+// Handles: ElevenLabs TTS (primary) + Browser TTS (fallback) + STT
 
-export interface VoiceConfig {
+// ── Types ──────────────────────────────────────────────────────────────────────
+interface SpeakOptions {
   language?: string;
-  continuous?: boolean;
-  interimResults?: boolean;
+  rate?:     number;
+  pitch?:    number;
+  volume?:   number;
+  onEnd?:    () => void;
+  onError?:  (e: string) => void;
 }
 
-const defaultConfig: VoiceConfig = {
-  language: 'ur-PK', // Urdu Pakistan
-  continuous: false,
-  interimResults: true,
-};
+// ── Active audio tracker ───────────────────────────────────────────────────────
+let activeAudio: HTMLAudioElement | null = null;
 
-/**
- * Check if browser supports Web Speech API
- */
+// ── Stop all speech (ElevenLabs + browser) ────────────────────────────────────
+export function stopAllSpeech(): void {
+  // Stop ElevenLabs audio
+  if (activeAudio) {
+    activeAudio.pause();
+    activeAudio.src = "";
+    activeAudio = null;
+  }
+  // Stop browser TTS
+  if (typeof window !== "undefined" && window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+// ── ElevenLabs TTS (primary) ──────────────────────────────────────────────────
+async function speakWithElevenLabs(
+  text: string,
+  options: SpeakOptions = {}
+): Promise<boolean> {
+  try {
+    const res = await fetch("/api/tts", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ text }),
+    });
+
+    if (!res.ok) {
+      console.warn("ElevenLabs TTS failed:", res.status);
+      return false;
+    }
+
+    const audioBlob = await res.blob();
+    const audioUrl  = URL.createObjectURL(audioBlob);
+    const audio     = new Audio(audioUrl);
+    activeAudio     = audio;
+
+    audio.volume = options.volume ?? 1.0;
+
+    audio.onended = () => {
+      URL.revokeObjectURL(audioUrl);
+      activeAudio = null;
+      options.onEnd?.();
+    };
+
+    audio.onerror = () => {
+      URL.revokeObjectURL(audioUrl);
+      activeAudio = null;
+      options.onError?.("ElevenLabs playback error");
+    };
+
+    await audio.play();
+    return true;
+  } catch (err) {
+    console.warn("ElevenLabs error:", err);
+    return false;
+  }
+}
+
+// ── Browser TTS (fallback) ────────────────────────────────────────────────────
+function speakWithBrowser(text: string, options: SpeakOptions = {}): void {
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+
+  window.speechSynthesis.cancel();
+
+  const utterance  = new SpeechSynthesisUtterance(text);
+  utterance.lang   = options.language ?? "en-US";
+  utterance.rate   = options.rate     ?? 1.0;
+  utterance.pitch  = options.pitch    ?? 1.0;
+  utterance.volume = options.volume   ?? 1.0;
+
+  utterance.onend   = () => options.onEnd?.();
+  utterance.onerror = (e) => options.onError?.(e.error);
+
+  window.speechSynthesis.speak(utterance);
+}
+
+// ── Main speakText function ───────────────────────────────────────────────────
+// Tries ElevenLabs first, falls back to browser TTS if it fails
+export function speakText(
+  text: string,
+  options: SpeakOptions = {}
+): (() => void) {
+  stopAllSpeech();
+
+  // Try ElevenLabs, fallback to browser
+  speakWithElevenLabs(text, options).then((success) => {
+    if (!success) {
+      console.info("Falling back to browser TTS");
+      speakWithBrowser(text, options);
+    }
+  });
+
+  // Return stop function
+  return () => stopAllSpeech();
+}
+
+// ── Availability checks ───────────────────────────────────────────────────────
 export function isSpeechRecognitionAvailable(): boolean {
-  if (typeof window === 'undefined') return false;
-
-  const SpeechRecognition =
+  if (typeof window === "undefined") return false;
+  return !!(
     (window as any).SpeechRecognition ||
-    (window as any).webkitSpeechRecognition ||
-    (window as any).mozSpeechRecognition ||
-    (window as any).msSpeechRecognition;
-
-  return !!SpeechRecognition;
+    (window as any).webkitSpeechRecognition
+  );
 }
 
-/**
- * Start voice recording and convert to text
- */
+export function isTextToSpeechAvailable(): boolean {
+  // Always true — either ElevenLabs or browser TTS will work
+  return typeof window !== "undefined";
+}
+
+// ── Voice recognition (STT) — unchanged ──────────────────────────────────────
 export function startVoiceRecognition(
-  onResult: (transcript: string) => void,
-  onError: (error: string) => void,
-  onStart?: () => void,
-  onEnd?: () => void,
-  config: VoiceConfig = defaultConfig
-): (() => void) | null {
-  if (typeof window === 'undefined') return null;
+  onInterim:  (text: string) => void,
+  onError:    (error: string) => void,
+  onFinal?:   (text: string) => void,
+  onEnd?:     () => void,
+  options:    { language?: string } = {}
+): () => void {
+  if (typeof window === "undefined") return () => {};
 
   const SpeechRecognition =
     (window as any).SpeechRecognition ||
-    (window as any).webkitSpeechRecognition ||
-    (window as any).mozSpeechRecognition ||
-    (window as any).msSpeechRecognition;
+    (window as any).webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
-    onError('Voice recognition not supported on this browser');
-    return null;
+    onError("not-supported");
+    return () => {};
   }
 
   const recognition = new SpeechRecognition();
-  let finalTranscript = '';
-
-  recognition.language = config.language || 'ur-PK';
-  recognition.continuous = config.continuous || false;
-  recognition.interimResults = config.interimResults !== false;
-
-  recognition.onstart = () => {
-    onStart?.();
-  };
+  recognition.lang          = options.language ?? "en-US";
+  recognition.continuous    = false;
+  recognition.interimResults = true;
 
   recognition.onresult = (event: any) => {
-    let interimTranscript = '';
+    let interimTranscript = "";
+    let finalTranscript   = "";
 
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
       const transcript = event.results[i][0].transcript;
-
       if (event.results[i].isFinal) {
-        finalTranscript += transcript + ' ';
+        finalTranscript += transcript;
       } else {
         interimTranscript += transcript;
       }
     }
 
-    if (interimTranscript) {
-      onResult(interimTranscript);
-    }
-    if (finalTranscript) {
-      onResult(finalTranscript.trim());
-    }
+    if (interimTranscript) onInterim(interimTranscript);
+    if (finalTranscript)   (onFinal ?? onInterim)(finalTranscript);
   };
 
-  recognition.onerror = (event: any) => {
-    onError(event.error);
-  };
+  recognition.onerror = (event: any) => onError(event.error);
+  recognition.onend   = () => onEnd?.();
 
-  recognition.onend = () => {
-    onEnd?.();
-  };
-
-  // Start recording
-  try {
-    recognition.start();
-  } catch (error) {
-    onError('Could not start recording');
-    return null;
-  }
-
-  // Return stop function
-  return () => {
-    try {
-      recognition.stop();
-    } catch (error) {
-      console.error('Error stopping recognition:', error);
-    }
-  };
-}
-
-/**
- * Check if browser supports Text-to-Speech
- */
-export function isTextToSpeechAvailable(): boolean {
-  if (typeof window === 'undefined') return false;
-  return !!(window.speechSynthesis && window.SpeechSynthesisUtterance);
-}
-
-/**
- * Speak text using browser's speech synthesis
- */
-export function speakText(
-  text: string,
-  config: {
-    language?: string;
-    rate?: number;
-    pitch?: number;
-    volume?: number;
-    onEnd?: () => void;
-    onError?: (error: string) => void;
-  } = {}
-): (() => void) | null {
-  if (typeof window === 'undefined') return null;
-
-  if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-    config.onError?.('Text-to-speech not supported on this browser');
-    return null;
-  }
-
-  try {
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-
-    utterance.lang = config.language || 'ur-PK';
-    utterance.rate = config.rate || 1;
-    utterance.pitch = config.pitch || 1;
-    utterance.volume = config.volume || 1;
-
-    utterance.onend = () => {
-      config.onEnd?.();
-    };
-
-    utterance.onerror = (event: any) => {
-      config.onError?.(event.error || 'Speech error');
-    };
-
-    window.speechSynthesis.speak(utterance);
-
-    // Return function to stop speech
-    return () => {
-      window.speechSynthesis.cancel();
-    };
-  } catch (error) {
-    config.onError?.('Error starting speech');
-    return null;
-  }
-}
-
-/**
- * Stop all speech
- */
-export function stopAllSpeech(): void {
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    window.speechSynthesis.cancel();
-  }
-}
-
-/**
- * Get available voices
- */
-export function getAvailableVoices(): SpeechSynthesisVoice[] {
-  if (typeof window === 'undefined') return [];
-  return window.speechSynthesis?.getVoices() || [];
-}
-
-/**
- * Find voice by language
- */
-export function findVoiceByLanguage(language: string): SpeechSynthesisVoice | null {
-  const voices = getAvailableVoices();
-  return voices.find((v) => v.lang.startsWith(language)) || null;
+  recognition.start();
+  return () => recognition.stop();
 }

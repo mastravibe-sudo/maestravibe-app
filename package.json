@@ -13,6 +13,7 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.107.0",
     "bcrypt": "^5.1.1",
+    "isomorphic-dompurify": "^3.18.0",
     "lucide-react": "^0.511.0",
     "mongodb": "^7.2.0",
     "mongoose": "^8.9.5",
