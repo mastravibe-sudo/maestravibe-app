@@ -4,8 +4,10 @@ import { createClient } from '@/lib/supabase';
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   const supabase = createClient();
   const body = await req.json();
   const { approved } = body;
@@ -13,7 +15,7 @@ export async function PATCH(
   const { data, error } = await supabase
     .from('reviews')
     .update({ approved })
-    .eq('id', params.id)
+    .eq('id', id)
     .select()
     .single();
 
@@ -25,14 +27,17 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   const supabase = createClient();
+
   const { error } = await supabase
     .from('reviews')
     .delete()
-    .eq('id', params.id);
+    .eq('id', id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
