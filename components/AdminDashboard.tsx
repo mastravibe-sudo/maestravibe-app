@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import type { Product, Order, Subscriber, Submission } from '@/lib/supabase';
+import type { Product, Order, Subscriber, Submission, SiteSettings } from '@/lib/supabase';
 import ColorPicker from '@/components/ColorPicker';
 
-type Tab         = 'products' | 'orders' | 'subscribers' | 'submissions';
+type Tab         = 'products' | 'orders' | 'subscribers' | 'submissions' | 'homepage';
 type OrderFilter = 'all' | 'new' | 'pending' | 'completed' | 'delivered';
 const ORDER_STATUSES = ['new', 'pending', 'completed', 'delivered'] as const;
 type OrderStatus = typeof ORDER_STATUSES[number];
@@ -132,6 +132,229 @@ function PlusIcon() {
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
     </svg>
+  );
+}
+function FlashIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  );
+}
+function ChartIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  );
+}
+function SaveIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+// HOMEPAGE SETTINGS TAB (Flash Sale + Stats)
+// ══════════════════════════════════════════════════════════════
+function HomepageSettingsPanel() {
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [form,     setForm]     = useState<SiteSettings | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [error,    setError]    = useState<string | null>(null);
+  const [saved,    setSaved]    = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const res  = await fetch('/api/settings');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? 'Failed to load settings');
+      setSettings(data);
+      setForm(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load settings');
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  // Helper to compute hours-from-now for the "extend by" quick buttons
+  const extendBy = (hours: number) => {
+    if (!form) return;
+    const newEnd = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+    setForm({ ...form, flash_sale_ends_at: newEnd });
+  };
+
+  const save = async () => {
+    if (!form) return;
+    setSaving(true); setError(null); setSaved(false);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? 'Save failed');
+      setSettings(data);
+      setForm(data);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally { setSaving(false); }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+        <SpinnerIcon />
+        <p className="text-sm font-medium mt-3">Loading settings...</p>
+      </div>
+    );
+  }
+
+  if (!form) {
+    return (
+      <div className="p-5 text-red-600 bg-red-50 border border-red-100 text-sm rounded-xl m-5">
+        Could not load homepage settings. {error}
+      </div>
+    );
+  }
+
+  // Format the ISO date for a datetime-local input (local timezone, no seconds)
+  const dtLocalValue = (iso: string) => {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(settings);
+
+  return (
+    <div className="p-5 md:p-6 space-y-8 max-w-3xl">
+
+      {error && (
+        <div className="text-red-600 text-sm bg-red-50 border border-red-200 px-4 py-3 rounded-xl">{error}</div>
+      )}
+
+      {/* ── FLASH SALE ── */}
+      <div className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-rose-50 to-orange-50">
+          <div className="w-9 h-9 bg-rose-500 text-white rounded-xl flex items-center justify-center shrink-0">
+            <FlashIcon />
+          </div>
+          <div>
+            <h3 className="font-black text-gray-900 text-sm">Flash Sale Banner</h3>
+            <p className="text-xs text-gray-500">Controls the countdown banner shown on the homepage</p>
+          </div>
+          <label className="ml-auto inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.flash_sale_enabled}
+              onChange={e => setForm({ ...form, flash_sale_enabled: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-checked:bg-rose-500 rounded-full transition-colors relative">
+              <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.flash_sale_enabled ? 'translate-x-5' : ''}`} />
+            </div>
+          </label>
+        </div>
+
+        <div className={`px-5 py-5 space-y-4 ${!form.flash_sale_enabled ? 'opacity-50' : ''}`}>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Sale ends at</label>
+            <input
+              type="datetime-local"
+              value={dtLocalValue(form.flash_sale_ends_at)}
+              onChange={e => setForm({ ...form, flash_sale_ends_at: new Date(e.target.value).toISOString() })}
+              disabled={!form.flash_sale_enabled}
+              className={INPUT}
+            />
+            <div className="flex gap-2 mt-2">
+              {[3, 6, 12, 24].map(h => (
+                <button key={h} type="button" onClick={() => extendBy(h)} disabled={!form.flash_sale_enabled}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-rose-100 hover:text-rose-700 transition disabled:opacity-50">
+                  +{h}h from now
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Discount %</label>
+              <input
+                type="number" min="1" max="99"
+                value={form.flash_sale_discount}
+                onChange={e => setForm({ ...form, flash_sale_discount: Number(e.target.value) })}
+                disabled={!form.flash_sale_enabled}
+                className={INPUT}
+              />
+              <p className="text-xs text-gray-400 mt-1">Shown as "Up to {form.flash_sale_discount}% Off"</p>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Links to category</label>
+              <select
+                value={form.flash_sale_category}
+                onChange={e => setForm({ ...form, flash_sale_category: e.target.value })}
+                disabled={!form.flash_sale_enabled}
+                className={INPUT}
+              >
+                {CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── STATS STRIP ── */}
+      <div className="bg-white border-2 border-gray-100 rounded-2xl overflow-hidden">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-violet-50 to-purple-50">
+          <div className="w-9 h-9 bg-violet-600 text-white rounded-xl flex items-center justify-center shrink-0">
+            <ChartIcon />
+          </div>
+          <div>
+            <h3 className="font-black text-gray-900 text-sm">Stats Strip</h3>
+            <p className="text-xs text-gray-500">The trust numbers shown near the bottom of the homepage</p>
+          </div>
+        </div>
+        <div className="px-5 py-5 grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Customers</label>
+            <input value={form.stats_customers} onChange={e => setForm({ ...form, stats_customers: e.target.value })}
+              placeholder="10K+" className={INPUT} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Products</label>
+            <input value={form.stats_products} onChange={e => setForm({ ...form, stats_products: e.target.value })}
+              placeholder="500+" className={INPUT} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Rating</label>
+            <input value={form.stats_rating} onChange={e => setForm({ ...form, stats_rating: e.target.value })}
+              placeholder="4.9★" className={INPUT} />
+          </div>
+        </div>
+      </div>
+
+      {/* ── SAVE BAR ── */}
+      <div className="flex items-center gap-3 sticky bottom-0 bg-white/80 backdrop-blur-sm py-3 -mx-1 px-1">
+        <button
+          onClick={save}
+          disabled={saving || !hasChanges}
+          className="bg-violet-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] flex items-center gap-2"
+        >
+          <SaveIcon /> {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+        {hasChanges && !saving && <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>}
+        {saved && <span className="text-xs text-green-600 font-semibold">✓ Saved — homepage updated</span>}
+      </div>
+    </div>
   );
 }
 
@@ -684,6 +907,7 @@ export default function AdminDashboard() {
   };
 
   const fetchTab = useCallback(async (tab: Tab) => {
+    if (tab === 'homepage') return; // handled inside HomepageSettingsPanel itself
     setLoading(true); setError(null);
     try {
       const res  = await fetch(`/api/${tab}`);
@@ -763,6 +987,7 @@ export default function AdminDashboard() {
     { key: 'orders'      as Tab, label: 'Orders',      count: orders.length      },
     { key: 'subscribers' as Tab, label: 'Subscribers', count: subscribers.length },
     { key: 'submissions' as Tab, label: 'Submissions', count: submissions.length },
+    { key: 'homepage'    as Tab, label: 'Homepage',    count: null               },
   ];
 
   return (
@@ -853,16 +1078,20 @@ export default function AdminDashboard() {
                     : 'bg-white text-gray-600 hover:bg-violet-50 border-2 border-gray-200'
                 }`}>
                 <span>{t.label}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                  activeTab === t.key ? 'bg-violet-500 text-white' : 'bg-gray-100 text-gray-500'
-                }`}>{t.count}</span>
+                {t.count !== null && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                    activeTab === t.key ? 'bg-violet-500 text-white' : 'bg-gray-100 text-gray-500'
+                  }`}>{t.count}</span>
+                )}
               </button>
             ))}
-            <button
-              onClick={() => { fetchTab(activeTab); fetchTab('orders'); fetchTab('products'); }}
-              className="ml-auto px-4 py-2.5 rounded-xl text-sm bg-white border-2 border-gray-200 text-gray-500 hover:bg-gray-50 font-semibold transition flex items-center gap-2">
-              <RefreshIcon /> Refresh
-            </button>
+            {activeTab !== 'homepage' && (
+              <button
+                onClick={() => { fetchTab(activeTab); fetchTab('orders'); fetchTab('products'); }}
+                className="ml-auto px-4 py-2.5 rounded-xl text-sm bg-white border-2 border-gray-200 text-gray-500 hover:bg-gray-50 font-semibold transition flex items-center gap-2">
+                <RefreshIcon /> Refresh
+              </button>
+            )}
           </div>
 
           {/* Order sub-filters */}
@@ -881,7 +1110,15 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* ── HOMEPAGE SETTINGS TAB ── */}
+          {activeTab === 'homepage' && (
+            <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-100 overflow-hidden">
+              <HomepageSettingsPanel />
+            </div>
+          )}
+
           {/* Data Table */}
+          {activeTab !== 'homepage' && (
           <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-100 overflow-hidden">
             {loading && (
               <div className="flex flex-col items-center justify-center py-20 text-gray-400">
@@ -1152,6 +1389,7 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
     </>

@@ -1,8 +1,8 @@
-// components/header.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useMarket } from '@/lib/market-context';
 import type { Market } from '@/lib/market';
@@ -95,10 +95,12 @@ function MarketSwitcher() {
 
   const options: { value: Market; flag: string; label: string }[] = [
     { value: 'pk', flag: '🇵🇰', label: 'Pakistan' },
-    { value: 'us', flag: '🇺🇸', label: 'USA' },
+    { value: 'us', flag: '🇺🇸', label: 'USA'      },
+    { value: 'ae', flag: '🇦🇪', label: 'UAE'      },
+    { value: 'uk', flag: '🇬🇧', label: 'UK'       },
   ];
 
-  const current = options.find((o) => o.value === market)!;
+  const current = options.find((o) => o.value === market) ?? options[0];
 
   return (
     <div className="relative" ref={ref}>
@@ -113,12 +115,17 @@ function MarketSwitcher() {
       </button>
 
       {open && (
-        <div className="absolute top-full right-0 mt-1 w-36 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50">
+        <div className="absolute top-full right-0 mt-1 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-50">
           {options.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => { setMarket(opt.value); setOpen(false); window.location.reload(); }}
-              className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-violet-50 hover:text-violet-700 transition-colors ${
+              onClick={() => {
+                setMarket(opt.value);
+                setOpen(false);
+                // Allow context to update then reload
+                setTimeout(() => window.location.reload(), 50);
+              }}
+              className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-violet-50 hover:text-violet-700 transition-colors ${
                 market === opt.value ? 'text-violet-600 font-semibold bg-violet-50' : 'text-gray-700'
               }`}
             >
@@ -157,6 +164,11 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (search.trim()) router.push(`/?search=${encodeURIComponent(search.trim())}`);
@@ -175,9 +187,14 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
     { href: '/policy',   label: 'Policy'   },
   ];
 
-  const announcementText = market === 'pk'
-    ? `Free delivery above Rs. 2,000 · Cash on Delivery · ${config.phone}`
-    : `Free shipping above $50 · Secure checkout · ${config.phone}`;
+  // Market-aware announcement bar
+  const announcementMap: Record<string, string> = {
+    pk: `🇵🇰 Free delivery above Rs. 2,000 · Cash on Delivery · ${config?.phone ?? ''}`,
+    us: `🇺🇸 Free shipping above $50 · Secure checkout · ${config?.phone ?? ''}`,
+    ae: `🇦🇪 Free delivery above AED 150 · Secure checkout · ${config?.phone ?? ''}`,
+    uk: `🇬🇧 Free delivery above £30 · Secure checkout · ${config?.phone ?? ''}`,
+  };
+  const announcementText = announcementMap[market] ?? announcementMap['pk'];
 
   return (
     <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${
@@ -191,8 +208,15 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center gap-4">
 
-          {/* Logo */}
+          {/* ── Logo ── */}
+          {/* Replace /images/logo.png with your actual logo path */}
           <Link href="/" className="shrink-0 flex items-center gap-2">
+            {/* LOGO IMAGE — set your image path below */}
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-violet-100 flex items-center justify-center">
+              {/* Uncomment next line and remove the fallback span once you have a logo */}
+              {/* <Image src="/images/logo.png" alt="MaestraVibe" fill className="object-contain" priority /> */}
+              <span className="text-violet-600 font-black text-lg">M</span>
+            </div>
             <span className="text-2xl font-black tracking-tighter text-gray-900">
               MAESTRA<span className="text-violet-600">VIBE</span>
             </span>
@@ -249,7 +273,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
 
             {/* WhatsApp — PK only */}
             {market === 'pk' && (
-              <a href={`https://wa.me/${config.whatsapp}`} target="_blank" rel="noreferrer"
+              <a href={`https://wa.me/${config?.whatsapp ?? ''}`} target="_blank" rel="noreferrer"
                 className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition"
                 title="WhatsApp">
                 <WhatsAppIcon />
@@ -268,7 +292,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
               )}
             </button>
 
-            {/* Mobile menu */}
+            {/* Mobile menu toggle */}
             <button onClick={() => setMobileOpen(!mobileOpen)}
               className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
               {mobileOpen ? <CloseIcon /> : <MenuIcon />}
