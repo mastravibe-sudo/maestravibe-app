@@ -513,10 +513,9 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
       <div className="p-4 flex flex-col flex-1">
         <h3 onClick={() => openProductPage(product)} className="font-semibold text-sm mb-1.5 line-clamp-2 cursor-pointer hover:text-violet-600 transition-colors text-gray-800">{product.name}</h3>
         <div className="flex items-center gap-1 mb-2">{[1,2,3,4,5].map(s => <StarIco key={s} />)}<span className="text-xs text-gray-400 ml-1">(4.8)</span></div>
-        {product.colors?.length > 0 && (
-          <div className="flex gap-1 mb-2.5 flex-wrap">
+{(product.colors?.length ?? 0) > 0 && (          <div className="flex gap-1 mb-2.5 flex-wrap">
             {product.colors.slice(0, 6).map((c: string, i: number) => <span key={i} className="w-4 h-4 rounded-full border-2 border-white shadow-sm ring-1 ring-gray-200 shrink-0" style={{ backgroundColor: c }} title={c} />)}
-            {product.colors.length > 6 && <span className="text-xs text-gray-400 self-center">+{product.colors.length - 6}</span>}
+            {product.colors?.length > 6 && <span className="text-xs text-gray-400 self-center">+{product.colors?.length ?? 0 - 6}</span>}
           </div>
         )}
         {/* ── Market se price format hoga ── */}

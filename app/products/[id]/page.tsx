@@ -76,12 +76,10 @@ export default function ProductPage() {
           )}
 
           {/* Colors */}
-          {product.colors?.length > 0 && (
-            <div className="mb-4">
+{(product.colors?.length ?? 0) > 0 && (            <div className="mb-4">
               <p className="text-sm font-medium text-gray-700 mb-2">Color</p>
               <div className="flex gap-2 flex-wrap">
-                {product.colors.map((c) => (
-                  <button
+{(product.colors ?? []).map((c) => (                  <button
                     key={c}
                     onClick={() => setSelectedColor(c)}
                     className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
@@ -98,12 +96,10 @@ export default function ProductPage() {
           )}
 
           {/* Sizes */}
-          {product.sizes?.length > 0 && (
-            <div className="mb-6">
+{(product.sizes?.length ?? 0) > 0 && (            <div className="mb-6">
               <p className="text-sm font-medium text-gray-700 mb-2">Size</p>
               <div className="flex gap-2 flex-wrap">
-                {product.sizes.map((s) => (
-                  <button
+{(product.sizes ?? []).map((s) => (                  <button
                     key={s}
                     onClick={() => setSelectedSize(s)}
                     className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${

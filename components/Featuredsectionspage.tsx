@@ -222,12 +222,12 @@ function ProductCard({
         </div>
 
         {/* Color swatches */}
-        {product.colors && product.colors.length > 0 && (
+        {product.colors && product.colors?.length > 0 && (
           <div className="flex gap-1 mb-3">
             {product.colors.slice(0, 5).map((c, i) => (
               <span key={i} className="w-3.5 h-3.5 rounded-full border border-white ring-1 ring-gray-200" style={{ backgroundColor: c }} />
             ))}
-            {product.colors.length > 5 && <span className="text-xs text-gray-400 self-center">+{product.colors.length - 5}</span>}
+            {product.colors?.length > 5 && <span className="text-xs text-gray-400 self-center">+{product.colors?.length ?? 0 - 5}</span>}
           </div>
         )}
 

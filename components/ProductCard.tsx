@@ -52,7 +52,7 @@ export default function ProductCard({ product, onAddToCart }: Props) {
         </p>
 
         {/* Colors Preview - Fixed */}
-        {product.colors && product.colors.length > 0 && (
+        {product.colors && product.colors?.length > 0 && (
           <div className="flex gap-1 mt-2">
             {product.colors.slice(0, 4).map((c) => (
               <span
