@@ -11,12 +11,12 @@ function getSupabase() {
 // PATCH /api/products/[id]
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }  // Promise add kiya
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = getSupabase();
     const body = await req.json();
-    const { id } = await params;  // await add kiya
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json({ message: 'Product ID is required' }, { status: 400 });
@@ -43,11 +43,11 @@ export async function PATCH(
 // DELETE /api/products/[id]
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }  // Promise add kiya
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const supabase = getSupabase();
-    const { id } = await params;  // await add kiya
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json({ message: 'Product ID is required' }, { status: 400 });

@@ -1,7 +1,6 @@
 // lib/market.ts
 
-export type Market = 'pk' | 'us';
-
+export type Market = 'pk' | 'us' | 'uk' | 'ae';
 export interface MarketConfig {
   market: Market;
   currency: 'PKR' | 'USD';
@@ -45,6 +44,34 @@ export const MARKET_CONFIG: Record<Market, MarketConfig> = {
     freeDeliveryAbove: '$50',
     codAvailable: false,
     language: 'en-US',
+  },
+  uk: {
+    market: 'uk',
+    currency: 'PKR',
+    currencySymbol: 'Rs.',
+    locale: 'en-GB',
+    phone: '+44 20 1234 5678',
+    email: 'uk@maestravibe.com',
+    address: 'London, United Kingdom',
+    whatsapp: '',
+    deliveryDays: '3–6 business days',
+    freeDeliveryAbove: '£30',
+    codAvailable: false,
+    language: 'en-GB',
+  },
+  ae: {
+    market: 'ae',
+    currency: 'PKR',
+    currencySymbol: 'Rs.',
+    locale: 'en-AE',
+    phone: '+971 50 123 4567',
+    email: 'ae@maestravibe.com',
+    address: 'Dubai, UAE',
+    whatsapp: '',
+    deliveryDays: '2–5 business days',
+    freeDeliveryAbove: 'AED 150',
+    codAvailable: false,
+    language: 'en-AE',
   },
 };
 

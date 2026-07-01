@@ -86,7 +86,7 @@ const Footer: React.FC = () => {
     },
   };
 
-  const content = footerContent[market];
+  const content = footerContent[market as keyof typeof footerContent] ?? footerContent.pk;
 
   return (
     <footer className="relative bg-gradient-to-br from-gray-900 to-gray-800 text-white overflow-hidden">

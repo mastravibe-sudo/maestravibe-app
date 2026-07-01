@@ -25,27 +25,24 @@ const HeartIco  = ({ filled }: { filled: boolean }) => filled
   ? <svg className="w-4 h-4 text-rose-500 fill-rose-500" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
   : <Icon cls="w-4 h-4 text-gray-400" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />;
 const FlashIco  = () => <Icon cls="w-4 h-4" d="M13 10V3L4 14h7v7l9-11h-7z" />;
-const GiftIco   = () => <Icon cls="w-5 h-5" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />;
+const FestIco   = () => <Icon cls="w-4 h-4" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />;
 const TruckIco  = () => <Icon cls="w-5 h-5" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0zM13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10l2 1h8zm0 0l2-1h2l2-3V9l-2-2h-4v9z" />;
 const ShieldIco = () => <Icon cls="w-5 h-5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />;
 const TrendIco  = () => <Icon cls="w-5 h-5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />;
 
-// ─── DATA ────────────────────────────────────────────────────────────────────
-const SLIDES = [
+// ─── STATIC FALLBACKS (used only until CMS data loads, or if CMS is empty) ───
+const FALLBACK_SLIDES = [
   { image: '/image/image1.png', fallback: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&auto=format&fit=crop', title: 'New Collection', sub: 'Trendy fashion, one click away', tag: 'Summer 2025' },
   { image: '/image/image 2.png', fallback: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=1200&auto=format&fit=crop', title: 'Premium Quality', sub: 'Genuine products at fair prices', tag: 'Top Picks' },
   { image: '/image/image 4.png', fallback: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=1200&auto=format&fit=crop', title: 'Fast Delivery', sub: 'Cash on delivery — all over Pakistan', tag: 'COD Available' },
-  { image: '/image/image 5.png', fallback: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=1200&auto=format&fit=crop', title: 'Best Products', sub: 'Hand-picked for you every season', tag: 'Bestsellers' },
-  { image: '/image/image 6.png', fallback: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&auto=format&fit=crop', title: 'New Arrivals', sub: 'Fresh styles landing every week', tag: 'Just In' },
 ];
 
-const CATEGORIES = [
-  { label: 'All',         value: 'all',         image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&auto=format&fit=crop' },
-  { label: 'Men',         value: 'men',         image: 'https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?w=400&auto=format&fit=crop' },
-  { label: 'Women',       value: 'women',       image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400&auto=format&fit=crop' },
-  { label: 'Kids',        value: 'kids',        image: 'https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=400&auto=format&fit=crop' },
-  { label: 'Accessories', value: 'accessories', image: 'https://images.unsplash.com/photo-1611085583191-a3b181a88401?w=400&auto=format&fit=crop' },
-  { label: 'Sale',        value: 'sale',        image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=400&auto=format&fit=crop' },
+const FALLBACK_CATEGORIES = [
+  { label: 'Men',         value: 'men',         image_url: 'https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?w=400&auto=format&fit=crop', emoji: '' },
+  { label: 'Women',       value: 'women',       image_url: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400&auto=format&fit=crop', emoji: '' },
+  { label: 'Kids',        value: 'kids',        image_url: 'https://images.unsplash.com/photo-1622290291468-a28f7a7dc6a8?w=400&auto=format&fit=crop', emoji: '' },
+  { label: 'Accessories', value: 'accessories', image_url: 'https://images.unsplash.com/photo-1611085583191-a3b181a88401?w=400&auto=format&fit=crop', emoji: '' },
+  { label: 'Sale',        value: 'sale',        image_url: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=400&auto=format&fit=crop', emoji: '' },
 ];
 
 const SORT_OPTIONS = [
@@ -64,7 +61,6 @@ const TESTIMONIALS = [
 ];
 
 // ─── MARKET CONFIG ────────────────────────────────────────────────────────────
-// Yahan har market ki settings hain — Header ka MarketContext isi key se match karta hai
 const MARKET_CONFIG: Record<string, {
   currency: string; symbol: string; freeDeliveryMin: string;
   phone: string; conversionRate: number; label: string; flag: string;
@@ -76,12 +72,25 @@ const MARKET_CONFIG: Record<string, {
   uk: { currency: 'GBP', symbol: '£',    freeDeliveryMin: '30',    phone: '+44-000-0000',    conversionRate: 355, label: 'UK',       flag: '🇬🇧', codAvailable: false },
 };
 
-// ─── SITE SETTINGS TYPE ──────────────────────────────────────────────────────
+// ─── SITE SETTINGS TYPE — matches lib/supabase.ts SiteSettings ──────────────
 interface SiteSettings {
   flash_sale_enabled:  boolean;
   flash_sale_ends_at:  string;
   flash_sale_discount: number;
   flash_sale_category: string;
+
+  festival_enabled:    boolean;
+  festival_ends_at:    string;
+  festival_discount:   number;
+  festival_category:   string;
+  pk_festival_label:   string;
+  us_festival_label:   string;
+  festival_theme_pk:   string;
+  festival_theme_us:   string;
+
+  pk_banner_title:     string;
+  us_banner_title:     string;
+
   stats_customers:     string;
   stats_products:      string;
   stats_rating:        string;
@@ -89,13 +98,57 @@ interface SiteSettings {
 
 const DEFAULT_SETTINGS: SiteSettings = {
   flash_sale_enabled:  true,
-  flash_sale_ends_at:  new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+  flash_sale_ends_at:  '2030-01-01T00:00:00.000Z',
   flash_sale_discount: 50,
   flash_sale_category: 'sale',
+
+  festival_enabled:    false,
+  festival_ends_at:    '2030-01-08T00:00:00.000Z',
+  festival_discount:   30,
+  festival_category:   'sale',
+  pk_festival_label:   '',
+  us_festival_label:   '',
+  festival_theme_pk:   'emerald',
+  festival_theme_us:   'blue',
+
+  pk_banner_title:     '🎉 Sale up to 50% off · Free delivery above Rs. 1,500 · Cash on Delivery · 7-day returns',
+  us_banner_title:     '🎉 Sale up to 50% off · Free shipping above $50 · Secure Checkout · Easy Returns',
+
   stats_customers:     '10K+',
   stats_products:      '500+',
   stats_rating:        '4.9★',
 };
+
+// Tailwind only picks up class names it can see statically, so map known
+// theme names to fixed gradient classes instead of building the class
+// string dynamically (e.g. `bg-${theme}-600` would get purged in prod).
+const FESTIVAL_THEME_CLASSES: Record<string, string> = {
+  emerald: 'from-emerald-600 to-emerald-500',
+  green:   'from-green-600 to-green-500',
+  blue:    'from-blue-600 to-blue-500',
+  cyan:    'from-cyan-600 to-cyan-500',
+  violet:  'from-violet-600 to-purple-500',
+  rose:    'from-rose-600 to-pink-500',
+  orange:  'from-orange-600 to-amber-500',
+  yellow:  'from-yellow-500 to-amber-400',
+  gray:    'from-gray-800 to-gray-600',
+};
+const festivalGradient = (theme: string) => FESTIVAL_THEME_CLASSES[theme] ?? FESTIVAL_THEME_CLASSES.violet;
+
+// ─── CMS TYPES ───────────────────────────────────────────────────────────────
+interface CmsBanner {
+  id: string; title: string; subtitle: string; tag: string;
+  image_url: string; button_label: string; button_link: string;
+  market: 'pk' | 'us' | 'both'; is_active: boolean; sort_order: number;
+}
+interface CmsCategory {
+  id: string; label: string; value: string; image_url: string;
+  emoji: string; is_active: boolean; sort_order: number;
+}
+interface ProductVariant {
+  id: string; size: string; color: string;
+  price: number; actual_price?: number | null; stock?: number | null;
+}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const loadCart  = () => { try { const s = localStorage.getItem('mv_cart2'); return s ? JSON.parse(s) : []; } catch { return []; } };
@@ -108,7 +161,6 @@ const playSound = () => { try { const a = new Audio('/sound/mixkit-happy-bells-n
 
 /**
  * formatPrice — PKR base price ko active market ki currency mein convert karta hai.
- * MarketContext se milne wali market key use hoti hai.
  */
 const formatPrice = (pricePKR: number, market: string): string => {
   const cfg = MARKET_CONFIG[market] ?? MARKET_CONFIG['pk'];
@@ -120,27 +172,51 @@ const formatPrice = (pricePKR: number, market: string): string => {
   return `${cfg.symbol}${converted.toFixed(2)}`;
 };
 
-// ─── SLIDE IMAGE ─────────────────────────────────────────────────────────────
-function SlideImage({ slide, alt }: { slide: typeof SLIDES[0]; alt: string }) {
-  const [src, setSrc] = useState(slide.image);
-  return <img src={src} alt={alt} className="w-full h-full object-cover" onError={() => setSrc(slide.fallback)} />;
+/**
+ * findVariant — product ke variants array mein se selected size+color
+ * se match karta hai. Variant na ho to null returns karta hai, taake
+ * caller flat price/stock pe gracefully fallback kar sake.
+ */
+function findVariant(product: any, size: string, color: string): ProductVariant | null {
+  if (!product?.variants?.length) return null;
+  const v = product.variants.find((v: ProductVariant) =>
+    (v.size || '') === (size || '') && (v.color || '') === (color || ''));
+  return v ?? null;
 }
 
-// ─── FLASH SALE COUNTDOWN ────────────────────────────────────────────────────
-function FlashSaleTimer({ endsAt }: { endsAt: string }) {
+/**
+ * effectivePrice — variant price agar match ho to wo, warna product.price.
+ */
+function effectivePrice(product: any, size: string, color: string): number {
+  const v = findVariant(product, size, color);
+  return v ? v.price : product.price;
+}
+
+// ─── SLIDE IMAGE ─────────────────────────────────────────────────────────────
+function SlideImage({ src, fallback, alt }: { src: string; fallback?: string; alt: string }) {
+  const [current, setCurrent] = useState(src);
+  return <img src={current} alt={alt} className="w-full h-full object-cover" onError={() => { if (fallback && current !== fallback) setCurrent(fallback); }} />;
+}
+
+// ─── FLASH / FESTIVAL COUNTDOWN ──────────────────────────────────────────────
+function CountdownTimer({ endsAt, dark = true }: { endsAt: string; dark?: boolean }) {
   const calcRemaining = () => {
     const diff = Math.max(0, new Date(endsAt).getTime() - Date.now());
     return { h: Math.floor(diff / 3600000), m: Math.floor((diff % 3600000) / 60000), s: Math.floor((diff % 60000) / 1000) };
   };
-  const [time, setTime] = useState(calcRemaining);
-  useEffect(() => { const id = setInterval(() => setTime(calcRemaining()), 1000); return () => clearInterval(id); }, [endsAt]);
+  const [time, setTime] = useState({ h: 0, m: 0, s: 0 });
+  useEffect(() => {
+    setTime(calcRemaining());
+    const id = window.setInterval(() => setTime(calcRemaining()), 1000);
+    return () => window.clearInterval(id);
+  }, [endsAt]);
   const pad = (n: number) => String(n).padStart(2, '0');
   return (
     <div className="flex items-center gap-1.5">
       {[pad(time.h), pad(time.m), pad(time.s)].map((v, i) => (
         <span key={i} className="flex items-center gap-1">
-          <span className="bg-gray-900 text-white text-sm font-black px-2.5 py-1.5 rounded-lg tabular-nums">{v}</span>
-          {i < 2 && <span className="text-gray-900 font-black text-sm">:</span>}
+          <span className={`text-sm font-black px-2.5 py-1.5 rounded-lg tabular-nums ${dark ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>{v}</span>
+          {i < 2 && <span className={`font-black text-sm ${dark ? 'text-gray-900' : 'text-white'}`}>:</span>}
         </span>
       ))}
     </div>
@@ -282,6 +358,11 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
 
   const [siteSettings,   setSiteSettings]   = useState<SiteSettings>(DEFAULT_SETTINGS);
 
+  // ── CMS-driven banners & categories ──
+  const [cmsBanners,     setCmsBanners]     = useState<CmsBanner[]>([]);
+  const [cmsCategories,  setCmsCategories]  = useState<CmsCategory[]>([]);
+  const [cmsLoading,     setCmsLoading]     = useState(true);
+
   const [recentlyViewed, setRecentlyViewed] = useState<any[]>([]);
 
   const [activeCategory, setActiveCategory] = useState('all');
@@ -329,19 +410,57 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data) setSiteSettings(data); })
+      .then(data => { if (data) setSiteSettings(prev => ({ ...prev, ...data })); })
       .catch(() => {});
   }, []);
+
+  // ── Fetch CMS banners + categories (admin-managed Homepage CMS) ──
+  const loadCms = useCallback(async () => {
+    setCmsLoading(true);
+    try {
+      const [bRes, cRes] = await Promise.all([
+        fetch('/api/banners').catch(() => null),
+        fetch('/api/categories').catch(() => null),
+      ]);
+      const banners    = bRes && bRes.ok ? await bRes.json() : [];
+      const categories  = cRes && cRes.ok ? await cRes.json() : [];
+      setCmsBanners(Array.isArray(banners) ? banners : []);
+      setCmsCategories(Array.isArray(categories) ? categories : []);
+    } catch {
+      // CMS unreachable — fallbacks below will kick in
+    } finally {
+      setCmsLoading(false);
+    }
+  }, []);
+  useEffect(() => { loadCms(); }, [loadCms]);
 
   useEffect(() => { if (cartLoaded) saveCart(cart); }, [cart, cartLoaded]);
   useEffect(() => { if (wishLoaded) saveWish(wishlist); }, [wishlist, wishLoaded]);
   useEffect(() => { onCartCountChange?.(cart.reduce((s, i) => s + i.quantity, 0)); }, [cart, onCartCountChange]);
   useEffect(() => { if (showCartProp) setShowCart(true); }, [showCartProp]);
 
+  // ── Derived: active banners for this market, active categories ──
+  const activeBanners = cmsBanners
+    .filter(b => b.is_active && (b.market === 'both' || b.market === market))
+    .sort((a, b) => a.sort_order - b.sort_order);
+
+  const slides = activeBanners.length > 0
+    ? activeBanners.map(b => ({ id: b.id, image: b.image_url, fallback: '', title: b.title, sub: b.subtitle, tag: b.tag, buttonLabel: b.button_label || 'Shop Now', buttonLink: b.button_link || 'all' }))
+    : FALLBACK_SLIDES.map((s, i) => ({ id: `fallback-${i}`, image: s.image, fallback: s.fallback, title: s.title, sub: s.sub, tag: s.tag, buttonLabel: 'Shop Now', buttonLink: 'all' }));
+
+  const activeCategories = cmsCategories.filter(c => c.is_active).sort((a, b) => a.sort_order - b.sort_order);
+
+  const categoriesForGrid = activeCategories.length > 0
+    ? activeCategories.map(c => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }))
+    : FALLBACK_CATEGORIES.map(c => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }));
+
+  const categoriesForFilter = [{ label: 'All', value: 'all', image: '', emoji: '' }, ...categoriesForGrid];
+
   useEffect(() => {
-    const id = setInterval(() => setCurrentSlide(p => (p + 1) % SLIDES.length), 5000);
+    if (slides.length === 0) return;
+    const id = setInterval(() => setCurrentSlide(p => (p + 1) % slides.length), 5000);
     return () => clearInterval(id);
-  }, []);
+  }, [slides.length]);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -386,6 +505,9 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
   const trendingNow   = allProducts.length > 4
     ? [...allProducts].sort((a, b) => (b.price || 0) - (a.price || 0)).slice(0, 10)
     : allProducts;
+  const festivalProducts = siteSettings.festival_enabled
+    ? allProducts.filter(p => p.festival_tag && p.festival_tag === siteSettings.festival_category).slice(0, 8)
+    : [];
   const activeFiltersCount = (priceMin || priceMax ? 1 : 0) + (selectedColors.length ? 1 : 0) + (selectedSizes.length ? 1 : 0);
 
   // ── Actions ──
@@ -417,7 +539,11 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
   };
 
   const addToCart = (product: any, color?: string, size?: string) => {
-    const item = { ...product, selectedColor: color ?? selectedColor ?? product.colors?.[0] ?? '', selectedSize: size ?? selectedSize ?? product.sizes?.[0] ?? 'Standard', quantity: 1 };
+    const finalColor = color ?? selectedColor ?? product.colors?.[0] ?? '';
+    const finalSize  = size ?? selectedSize ?? product.sizes?.[0] ?? 'Standard';
+    // Variant-aware price: agar is size+color ka apna price set hai to wo use hoga
+    const finalPrice = effectivePrice(product, finalSize, finalColor);
+    const item = { ...product, price: finalPrice, selectedColor: finalColor, selectedSize: finalSize, quantity: 1 };
     setCart(prev => {
       const idx = prev.findIndex(i => i._id === item._id && i.selectedColor === item.selectedColor && i.selectedSize === item.selectedSize);
       if (idx >= 0) { const u = [...prev]; u[idx] = { ...u[idx], quantity: u[idx].quantity + 1 }; return u; }
@@ -429,7 +555,10 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
   };
 
   const handleBuyNow = (product: any, color?: string, size?: string) => {
-    const item = { ...product, selectedColor: color ?? product.colors?.[0] ?? '', selectedSize: size ?? product.sizes?.[0] ?? 'Standard', quantity: 1 };
+    const finalColor = color ?? product.colors?.[0] ?? '';
+    const finalSize  = size ?? product.sizes?.[0] ?? 'Standard';
+    const finalPrice = effectivePrice(product, finalSize, finalColor);
+    const item = { ...product, price: finalPrice, selectedColor: finalColor, selectedSize: finalSize, quantity: 1 };
     setCheckoutProduct(item);
     setSelectedProduct(null); setViewProductPage(null);
     setCheckoutStep(1); setShowCheckout(true);
@@ -498,12 +627,33 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
     colors: p.colors ?? [], sizes: p.sizes ?? [],
   }));
 
+  // ─ PRODUCT TAGS + FESTIVAL BADGE (shared between card & full page) ─
+  const ProductBadges = ({ product, className = '' }: { product: any; className?: string }) => {
+    const tags: string[] = product.tags ?? [];
+    if (tags.length === 0 && !product.festival_tag) return null;
+    return (
+      <div className={`flex flex-wrap gap-1 ${className}`}>
+        {product.festival_tag && (
+          <span className="bg-rose-600 text-white text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-sm">
+            <FestIco /> Festival
+          </span>
+        )}
+        {tags.slice(0, 2).map((t: string, i: number) => (
+          <span key={i} className="bg-violet-600/90 text-white text-xs px-2 py-0.5 rounded-full font-semibold shadow-sm whitespace-nowrap">{t}</span>
+        ))}
+      </div>
+    );
+  };
+
   // ─ PRODUCT CARD ─
   const ProductCard = ({ product }: { product: any }) => (
     <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group border border-gray-100 flex flex-col">
       <div className="relative overflow-hidden cursor-pointer bg-gray-50" style={{ height: '210px' }}>
         <img src={product.images?.[0] ?? 'https://via.placeholder.com/400'} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={product.name} onClick={() => openProductPage(product)} />
-        <div className="absolute top-2 left-2"><span className="bg-white/90 backdrop-blur-sm text-gray-700 text-xs px-2.5 py-1 rounded-full font-semibold capitalize shadow-sm">{product.category}</span></div>
+        <div className="absolute top-2 left-2 flex flex-col gap-1 max-w-[70%]">
+          <span className="bg-white/90 backdrop-blur-sm text-gray-700 text-xs px-2.5 py-1 rounded-full font-semibold capitalize shadow-sm w-fit">{product.category}</span>
+          <ProductBadges product={product} />
+        </div>
         <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0">
           <button onClick={e => { e.stopPropagation(); toggleWish(product._id); }} className="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:scale-110 transition-transform"><HeartIco filled={wishlist.includes(product._id)} /></button>
           <button onClick={e => { e.stopPropagation(); openProduct(product); }} className="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:scale-110 transition-transform"><EyeIco /></button>
@@ -513,9 +663,10 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
       <div className="p-4 flex flex-col flex-1">
         <h3 onClick={() => openProductPage(product)} className="font-semibold text-sm mb-1.5 line-clamp-2 cursor-pointer hover:text-violet-600 transition-colors text-gray-800">{product.name}</h3>
         <div className="flex items-center gap-1 mb-2">{[1,2,3,4,5].map(s => <StarIco key={s} />)}<span className="text-xs text-gray-400 ml-1">(4.8)</span></div>
-{(product.colors?.length ?? 0) > 0 && (          <div className="flex gap-1 mb-2.5 flex-wrap">
+        {(product.colors?.length ?? 0) > 0 && (
+          <div className="flex gap-1 mb-2.5 flex-wrap">
             {product.colors.slice(0, 6).map((c: string, i: number) => <span key={i} className="w-4 h-4 rounded-full border-2 border-white shadow-sm ring-1 ring-gray-200 shrink-0" style={{ backgroundColor: c }} title={c} />)}
-            {product.colors?.length > 6 && <span className="text-xs text-gray-400 self-center">+{product.colors?.length ?? 0 - 6}</span>}
+            {product.colors?.length > 6 && <span className="text-xs text-gray-400 self-center">+{(product.colors?.length ?? 0) - 6}</span>}
           </div>
         )}
         {/* ── Market se price format hoga ── */}
@@ -545,6 +696,11 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
   if (viewProductPage) {
     const p = viewProductPage;
     const related = allProducts.filter(x => x.category === p.category && x._id !== p._id).slice(0, 4);
+    const activeVariant = findVariant(p, selectedSize, selectedColor);
+    const displayPrice   = activeVariant ? activeVariant.price : p.price;
+    const displayStock   = activeVariant ? activeVariant.stock : null;
+    const outOfStock     = activeVariant && activeVariant.stock !== null && activeVariant.stock !== undefined && activeVariant.stock <= 0;
+
     return (
       <main className="bg-gray-50 min-h-screen">
         <div className="bg-violet-600 text-white text-center text-xs py-2 font-medium tracking-wide">
@@ -570,12 +726,21 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
               )}
             </div>
             <div className="py-2">
-              <span className="text-xs uppercase text-violet-500 font-bold tracking-widest capitalize">{p.category}</span>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="text-xs uppercase text-violet-500 font-bold tracking-widest capitalize">{p.category}</span>
+                <ProductBadges product={p} />
+              </div>
               <h1 className="text-3xl font-black mt-1 text-gray-900 mb-2">{p.name}</h1>
               <div className="flex items-center gap-2 mb-4"><div className="flex gap-0.5">{[1,2,3,4,5].map(s => <StarIco key={s} />)}</div><span className="text-sm text-gray-500">(4.8 · 124 reviews)</span></div>
               <div className="flex items-baseline gap-3 mb-5">
-                <p className="text-4xl font-black text-violet-700">{formatPrice(p.price, market)}</p>
-                <span className="text-sm text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">In Stock</span>
+                <p className="text-4xl font-black text-violet-700">{formatPrice(displayPrice, market)}</p>
+                {outOfStock ? (
+                  <span className="text-sm text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded-full">Out of Stock</span>
+                ) : (
+                  <span className="text-sm text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">
+                    {displayStock != null ? `${displayStock} in stock` : 'In Stock'}
+                  </span>
+                )}
               </div>
               <p className="text-gray-600 text-sm leading-relaxed mb-6 whitespace-pre-line">{p.description}</p>
               {p.colors?.length > 0 && (
@@ -585,14 +750,18 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
                 </div>
               )}
               {p.sizes?.length > 0 && (
-                <div className="mb-7">
+                <div className="mb-3">
                   <p className="font-bold text-sm mb-2 text-gray-800">Size</p>
                   <div className="flex gap-2 flex-wrap">{p.sizes.map((size: string, i: number) => <button key={i} onClick={() => setSelectedSize(size)} className={`px-5 py-2 border-2 rounded-xl text-sm font-semibold transition-all ${selectedSize === size ? 'bg-violet-600 text-white border-violet-600' : 'border-gray-200 hover:border-violet-400 text-gray-700'}`}>{size}</button>)}</div>
                 </div>
               )}
+              {p.has_variants && p.variants?.length > 0 && (
+                <p className="text-xs text-gray-400 mb-7">Price &amp; availability update automatically based on the size/color you pick.</p>
+              )}
+              {!(p.has_variants && p.variants?.length > 0) && <div className="mb-7" />}
               <div className="flex gap-3 mb-4">
-                <button onClick={() => addToCart(p)} className="flex-1 py-4 bg-gray-900 hover:bg-gray-700 text-white rounded-2xl font-bold text-sm transition-colors flex items-center justify-center gap-2"><CartIco cls="w-4 h-4" /> Add to Cart</button>
-                <button onClick={() => handleBuyNow(p)} className="flex-1 py-4 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl font-bold text-sm transition-colors">Buy Now</button>
+                <button onClick={() => addToCart(p)} disabled={!!outOfStock} className="flex-1 py-4 bg-gray-900 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm transition-colors flex items-center justify-center gap-2"><CartIco cls="w-4 h-4" /> Add to Cart</button>
+                <button onClick={() => handleBuyNow(p)} disabled={!!outOfStock} className="flex-1 py-4 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm transition-colors">Buy Now</button>
               </div>
               <div className="grid grid-cols-3 gap-3 text-center">
                 {[
@@ -626,11 +795,11 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
   return (
     <main className="bg-gray-50 text-gray-900 min-h-screen">
 
-      {/* Market-aware announcement bar */}
+      {/* Market-aware announcement bar — ab CMS settings se aata hai */}
       <div className="bg-gradient-to-r from-violet-700 to-purple-800 text-white text-center text-xs py-2 font-medium tracking-wide">
         {isPK
-          ? '🎉 Sale up to 50% off · Free delivery above Rs. 1,500 · Cash on Delivery · 7-day returns'
-          : `🎉 Sale up to 50% off · Free shipping above ${marketCfg.symbol}${marketCfg.freeDeliveryMin} · Secure Checkout · Easy Returns`
+          ? (siteSettings.pk_banner_title || DEFAULT_SETTINGS.pk_banner_title)
+          : (siteSettings.us_banner_title || DEFAULT_SETTINGS.us_banner_title)
         }
       </div>
 
@@ -649,19 +818,19 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
             </div>
           </div>
 
-          {/* HERO SLIDER */}
+          {/* HERO SLIDER — ab admin ke Hero Banners CMS se aata hai */}
           <section className="relative w-full overflow-hidden" style={{ height: 'clamp(280px,55vw,600px)' }}>
-            {SLIDES.map((slide, i) => (
-              <div key={i} className={`absolute inset-0 transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                <SlideImage slide={slide} alt={slide.title} />
+            {slides.map((slide, i) => (
+              <div key={slide.id} className={`absolute inset-0 transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                <SlideImage src={slide.image} fallback={slide.fallback} alt={slide.title} />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
                 <div className="absolute inset-0 flex items-center px-8 md:px-20">
                   <div className="max-w-lg">
-                    <span className="inline-block bg-violet-500/30 backdrop-blur-sm text-violet-200 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3">{slide.tag}</span>
+                    {slide.tag && <span className="inline-block bg-violet-500/30 backdrop-blur-sm text-violet-200 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3">{slide.tag}</span>}
                     <h2 className="text-white text-4xl md:text-6xl font-black leading-tight mb-2">{slide.title}</h2>
-                    <p className="text-white/75 text-sm mb-8">{slide.sub}</p>
+                    {slide.sub && <p className="text-white/75 text-sm mb-8">{slide.sub}</p>}
                     <div className="flex gap-3">
-                      <button onClick={() => navigateTo()} className="bg-violet-600 hover:bg-violet-500 active:scale-95 text-white px-8 py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-violet-600/40">Shop Now</button>
+                      <button onClick={() => navigateTo(slide.buttonLink === 'all' ? 'all' : slide.buttonLink)} className="bg-violet-600 hover:bg-violet-500 active:scale-95 text-white px-8 py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-violet-600/40">{slide.buttonLabel}</button>
                       <button onClick={() => navigateTo('sale')} className="bg-white/15 backdrop-blur-sm hover:bg-white/25 text-white px-6 py-3.5 rounded-xl font-semibold text-sm transition-all border border-white/30">View Sale 🔥</button>
                     </div>
                   </div>
@@ -669,10 +838,10 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
               </div>
             ))}
             <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-              {SLIDES.map((_, i) => <button key={i} onClick={() => setCurrentSlide(i)} className={`transition-all rounded-full ${i === currentSlide ? 'w-7 h-2.5 bg-white' : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/70'}`} />)}
+              {slides.map((s, i) => <button key={s.id} onClick={() => setCurrentSlide(i)} className={`transition-all rounded-full ${i === currentSlide ? 'w-7 h-2.5 bg-white' : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/70'}`} />)}
             </div>
-            <button onClick={() => setCurrentSlide(p => (p - 1 + SLIDES.length) % SLIDES.length)} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all z-10"><ChevL /></button>
-            <button onClick={() => setCurrentSlide(p => (p + 1) % SLIDES.length)} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all z-10"><ChevR /></button>
+            <button onClick={() => setCurrentSlide(p => (p - 1 + slides.length) % slides.length)} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all z-10"><ChevL /></button>
+            <button onClick={() => setCurrentSlide(p => (p + 1) % slides.length)} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all z-10"><ChevR /></button>
           </section>
 
           {/* TRUST STRIP */}
@@ -708,7 +877,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
                 <div className="flex items-center gap-4">
                   <div className="text-center">
                     <p className="text-white/70 text-xs mb-1 font-medium">Ends in</p>
-                    <FlashSaleTimer endsAt={siteSettings.flash_sale_ends_at} />
+                    <CountdownTimer endsAt={siteSettings.flash_sale_ends_at} />
                   </div>
                   <button onClick={() => navigateTo(siteSettings.flash_sale_category)} className="bg-white text-rose-600 px-6 py-2.5 rounded-xl font-black text-sm hover:bg-rose-50 transition-colors shadow-lg shrink-0">Shop Sale →</button>
                 </div>
@@ -716,23 +885,71 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
             </section>
           )}
 
-          {/* CATEGORIES */}
+          {/* FESTIVAL SALE BANNER — Eid, Ramadan, Black Friday, etc (admin-controlled) */}
+          {siteSettings.festival_enabled && new Date(siteSettings.festival_ends_at) > new Date() && (
+            <section className={`bg-gradient-to-r ${festivalGradient(isPK ? siteSettings.festival_theme_pk : siteSettings.festival_theme_us)} py-5`}>
+              <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-white/20 rounded-xl p-2.5"><FestIco /></div>
+                  <div>
+                    <p className="text-white/80 text-xs font-semibold uppercase tracking-widest">Festival Offer</p>
+                    <h3 className="text-white font-black text-xl">
+                      {(isPK ? siteSettings.pk_festival_label : siteSettings.us_festival_label) || `Festival Sale — Up to ${siteSettings.festival_discount}% Off!`}
+                    </h3>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <p className="text-white/70 text-xs mb-1 font-medium">Ends in</p>
+                    <CountdownTimer endsAt={siteSettings.festival_ends_at} dark={false} />
+                  </div>
+                  <button onClick={() => navigateTo(siteSettings.festival_category)} className="bg-white text-gray-900 px-6 py-2.5 rounded-xl font-black text-sm hover:bg-gray-50 transition-colors shadow-lg shrink-0">Shop Now →</button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* FESTIVAL PRODUCTS */}
+          {!productsLoading && festivalProducts.length > 0 && (
+            <section className="py-10 bg-gradient-to-b from-rose-50/40 to-white border-t border-gray-100">
+              <div className="max-w-7xl mx-auto px-4">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-rose-600 rounded-xl flex items-center justify-center text-white shrink-0"><FestIco /></div>
+                    <div>
+                      <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mb-1">Limited time</p>
+                      <h2 className="text-2xl font-black text-gray-800">
+                        {(isPK ? siteSettings.pk_festival_label : siteSettings.us_festival_label) || 'Festival Picks'}
+                      </h2>
+                    </div>
+                  </div>
+                  <button onClick={() => navigateTo(siteSettings.festival_category)} className="text-sm text-rose-600 font-semibold hover:underline flex items-center gap-1">View All <ChevR /></button>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-5">{festivalProducts.map((p: any, idx: number) => <ProductCard key={p._id ?? idx} product={p} />)}</div>
+              </div>
+            </section>
+          )}
+
+          {/* CATEGORIES — admin Homepage CMS se */}
           <section className="py-12 max-w-7xl mx-auto px-4">
             <div className="flex items-center justify-between mb-6">
               <div><p className="text-xs font-bold text-violet-600 uppercase tracking-widest mb-1">Browse by</p><h2 className="text-2xl font-black text-gray-800">Categories</h2></div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setCatSlide(p => Math.max(0, p - 1))} className="w-9 h-9 rounded-xl border-2 border-gray-200 flex items-center justify-center hover:border-violet-400 transition-colors"><ChevL /></button>
-                <button onClick={() => setCatSlide(p => Math.min(CATEGORIES.length - 4, p + 1))} className="w-9 h-9 rounded-xl border-2 border-gray-200 flex items-center justify-center hover:border-violet-400 transition-colors"><ChevR /></button>
+                <button onClick={() => setCatSlide(p => Math.min(Math.max(0, categoriesForGrid.length - 4), p + 1))} className="w-9 h-9 rounded-xl border-2 border-gray-200 flex items-center justify-center hover:border-violet-400 transition-colors"><ChevR /></button>
               </div>
             </div>
             <div className="overflow-hidden">
               <div className="flex gap-4 transition-transform duration-500" style={{ transform: `translateX(-${catSlide * (100 / 4)}%)` }}>
-                {CATEGORIES.filter(c => c.value !== 'all').map(cat => (
+                {categoriesForGrid.map(cat => (
                   <div key={cat.value} onClick={() => navigateTo(cat.value)} className="shrink-0 cursor-pointer group rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-xl transition-all duration-300" style={{ width: 'calc(25% - 12px)' }}>
                     <div className="relative overflow-hidden" style={{ height: '160px' }}>
-                      <img src={cat.image} alt={cat.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      {cat.image
+                        ? <img src={cat.image} alt={cat.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        : <div className="w-full h-full flex items-center justify-center bg-violet-50 text-5xl">{cat.emoji || '🛍️'}</div>
+                      }
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                      <div className="absolute bottom-3 left-3"><p className="text-white font-black text-base">{cat.label}</p></div>
+                      <div className="absolute bottom-3 left-3"><p className="text-white font-black text-base">{cat.emoji} {cat.label}</p></div>
                     </div>
                     <div className="p-3 flex items-center justify-between"><span className="text-xs text-gray-500">Explore collection</span><ChevR /></div>
                   </div>
@@ -902,7 +1119,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
                   <p className="text-xs mt-3 text-gray-500">{marketCfg.flag} Shipping to {marketCfg.label}</p>
                 </div>
                 {[
-                  { title: 'Shop',    links: ['Men', 'Women', 'Kids', 'Accessories', 'Sale'] },
+                  { title: 'Shop',    links: categoriesForGrid.slice(0, 5).map(c => c.label) },
                   { title: 'Help',    links: ['Returns', 'Track Order', 'FAQ', 'Contact Us'] },
                   { title: 'Company', links: ['About Us', 'Blog', 'Careers', 'Press'] },
                 ].map((col, i) => (
@@ -930,7 +1147,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
             <button onClick={() => { setView('home'); setActiveCategory('all'); setSearchQuery(''); setSearchInput(''); }} className="hover:text-violet-600 font-medium">Home</button>
             <span>/</span>
             <span className="font-semibold text-gray-700 capitalize">
-              {activeCategory !== 'all' ? CATEGORIES.find(c => c.value === activeCategory)?.label : 'All Products'}
+              {activeCategory !== 'all' ? categoriesForFilter.find(c => c.value === activeCategory)?.label : 'All Products'}
               {searchQuery && ` — "${searchQuery}"`}
             </span>
           </div>
@@ -944,15 +1161,15 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
           </div>
           <div className="max-w-7xl mx-auto px-4 pb-10">
             <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
-              {CATEGORIES.map(cat => (
+              {categoriesForFilter.map(cat => (
                 <button key={cat.value} onClick={() => setActiveCategory(cat.value)} className={`shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${activeCategory === cat.value ? 'bg-violet-600 text-white shadow-sm' : 'bg-white text-gray-600 hover:bg-violet-50 hover:text-violet-600 border border-gray-200'}`}>
-                  {cat.label}
+                  {cat.emoji} {cat.label}
                 </button>
               ))}
             </div>
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
               <div className="flex items-center gap-2 flex-wrap">
-                {activeCategory !== 'all' && <span className="bg-violet-50 text-violet-700 text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 border border-violet-100">{CATEGORIES.find(c => c.value === activeCategory)?.label}<button onClick={() => setActiveCategory('all')} className="hover:text-violet-900"><CloseIco /></button></span>}
+                {activeCategory !== 'all' && <span className="bg-violet-50 text-violet-700 text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 border border-violet-100">{categoriesForFilter.find(c => c.value === activeCategory)?.label}<button onClick={() => setActiveCategory('all')} className="hover:text-violet-900"><CloseIco /></button></span>}
                 {searchQuery && <span className="bg-violet-50 text-violet-700 text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-1.5 border border-violet-100">&ldquo;{searchQuery}&rdquo;<button onClick={() => { setSearchInput(''); setSearchQuery(''); }} className="hover:text-violet-900"><CloseIco /></button></span>}
                 <span className="text-xs text-gray-400 font-medium">{filtered.length} products</span>
               </div>
@@ -1013,7 +1230,11 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
       )}
 
       {/* PRODUCT MODAL */}
-      {selectedProduct && (
+      {selectedProduct && (() => {
+        const activeVariant = findVariant(selectedProduct, selectedSize, selectedColor);
+        const modalPrice     = activeVariant ? activeVariant.price : selectedProduct.price;
+        const modalOutOfStock = activeVariant && activeVariant.stock !== null && activeVariant.stock !== undefined && activeVariant.stock <= 0;
+        return (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-end md:items-center justify-center p-0 md:p-4">
           <div className="bg-white w-full md:max-w-4xl rounded-t-3xl md:rounded-3xl overflow-hidden max-h-[94vh] overflow-y-auto">
             <div className="flex flex-col md:flex-row">
@@ -1027,10 +1248,19 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
               </div>
               <div className="md:w-1/2 p-5 md:p-7">
                 <div className="flex justify-between items-start mb-3">
-                  <div><span className="text-xs uppercase text-violet-500 font-bold tracking-wider capitalize">{selectedProduct.category}</span><h1 className="text-xl md:text-2xl font-black mt-0.5 text-gray-900">{selectedProduct.name}</h1></div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <span className="text-xs uppercase text-violet-500 font-bold tracking-wider capitalize">{selectedProduct.category}</span>
+                      <ProductBadges product={selectedProduct} />
+                    </div>
+                    <h1 className="text-xl md:text-2xl font-black mt-0.5 text-gray-900">{selectedProduct.name}</h1>
+                  </div>
                   <button onClick={() => setSelectedProduct(null)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors ml-2 shrink-0"><CloseIco /></button>
                 </div>
-                <p className="text-3xl font-black text-violet-700 mb-4">{formatPrice(selectedProduct.price, market)}</p>
+                <div className="flex items-baseline gap-2 mb-4">
+                  <p className="text-3xl font-black text-violet-700">{formatPrice(modalPrice, market)}</p>
+                  {modalOutOfStock && <span className="text-xs text-red-600 font-semibold bg-red-50 px-2 py-0.5 rounded-full">Out of Stock</span>}
+                </div>
                 <p className="text-gray-600 text-sm mb-5 leading-relaxed whitespace-pre-line">{selectedProduct.description}</p>
                 {selectedProduct.colors?.length > 0 && (
                   <div className="mb-5">
@@ -1045,15 +1275,16 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
                   </div>
                 )}
                 <div className="flex gap-3 mb-3">
-                  <button onClick={() => addToCart(selectedProduct)} className="flex-1 py-3.5 bg-gray-900 hover:bg-gray-700 text-white rounded-2xl font-bold text-sm transition-colors flex items-center justify-center gap-2"><CartIco cls="w-4 h-4" /> Add to Cart</button>
-                  <button onClick={() => handleBuyNow(selectedProduct)} className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl font-bold text-sm transition-colors">Buy Now</button>
+                  <button onClick={() => addToCart(selectedProduct)} disabled={!!modalOutOfStock} className="flex-1 py-3.5 bg-gray-900 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm transition-colors flex items-center justify-center gap-2"><CartIco cls="w-4 h-4" /> Add to Cart</button>
+                  <button onClick={() => handleBuyNow(selectedProduct)} disabled={!!modalOutOfStock} className="flex-1 py-3.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm transition-colors">Buy Now</button>
                 </div>
                 <button onClick={() => { openProductPage(selectedProduct); setSelectedProduct(null); }} className="w-full py-3 border-2 border-gray-200 hover:border-violet-400 text-gray-600 hover:text-violet-600 rounded-2xl font-semibold text-sm transition-colors flex items-center justify-center gap-2"><EyeIco /> View Full Details</button>
               </div>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* CART */}
       {showCart && (

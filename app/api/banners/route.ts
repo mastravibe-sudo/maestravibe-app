@@ -1,35 +1,64 @@
-// app/api/banners/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-export async function GET() {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from('banners')
-    .select('*')
-    .order('sort_order', { ascending: true });
-
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) throw new Error('Missing Supabase environment variables');
+  return createClient(url, key);
 }
 
+// GET /api/banners — all banners, sorted
+export async function GET() {
+  try {
+    const supabase = getSupabase();
+
+    const { data, error } = await supabase
+      .from('banners')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    if (error) throw error;
+
+    return NextResponse.json(data ?? []);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
+  }
+}
+
+// POST /api/banners — create a new banner
 export async function POST(req: NextRequest) {
-  const supabase = createClient();
-  const body = await req.json();
+  try {
+    const supabase = getSupabase();
+    const body = await req.json();
 
-  const payload = {
-    title:        body.title        ?? '',
-    subtitle:     body.subtitle     ?? '',
-    tag:          body.tag          ?? '',
-    image_url:    body.image_url    ?? '',
-    button_label: body.button_label ?? 'Shop Now',
-    button_link:  body.button_link  ?? 'all',
-    market:       body.market       ?? 'both',
-    is_active:    body.is_active    ?? true,
-    sort_order:   body.sort_order   ?? 0,
-  };
+    if (!body.title) {
+      return NextResponse.json({ message: 'Title is required' }, { status: 400 });
+    }
 
-  const { data, error } = await supabase.from('banners').insert(payload).select().single();
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
-  return NextResponse.json(data, { status: 201 });
+    // Default sort_order to end of list if not provided
+    if (body.sort_order === undefined) {
+      const { data: maxRow } = await supabase
+        .from('banners')
+        .select('sort_order')
+        .order('sort_order', { ascending: false })
+        .limit(1)
+        .single();
+      body.sort_order = maxRow ? maxRow.sort_order + 1 : 0;
+    }
+
+    const { data, error } = await supabase
+      .from('banners')
+      .insert([body])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json(data, { status: 201 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
+    return NextResponse.json({ message }, { status: 500 });
+  }
 }
