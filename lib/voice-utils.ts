@@ -14,6 +14,17 @@ interface SpeakOptions {
 // ── Active audio tracker ───────────────────────────────────────────────────────
 let activeAudio: HTMLAudioElement | null = null;
 
+function sanitizeSpeechText(text: string): string {
+  return text
+    .replace(/https?:\/\/\S+/gi, '')
+    .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+    .replace(/(^|\n)\s*[-*•]+\s*/g, '$1')
+    .replace(/(^|\n)\s*\d+\.\s*/g, '$1')
+    .replace(/\r?\n+/g, '. ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 // ── Stop all speech (ElevenLabs + browser) ────────────────────────────────────
 export function stopAllSpeech(): void {
   // Stop ElevenLabs audio
@@ -34,14 +45,27 @@ async function speakWithElevenLabs(
   options: SpeakOptions = {}
 ): Promise<boolean> {
   try {
-    const res = await fetch("/api/tts", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ text }),
+    const voiceText = text
+      .replace(/(^|\n)\s*[-*•]+\s*/g, '$1')
+      .replace(/(^|\n)\s*\d+\.\s*/g, '$1')
+      .replace(/\r?\n+/g, '. ')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+
+    const url = typeof window !== 'undefined'
+      ? new URL('/api/tts', window.location.origin).href
+      : '/api/tts';
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      cache: 'no-store',
+      body:    JSON.stringify({ text: voiceText }),
     });
 
     if (!res.ok) {
-      console.warn("ElevenLabs TTS failed:", res.status);
+      console.warn('ElevenLabs TTS failed:', res.status);
       return false;
     }
 
@@ -76,9 +100,12 @@ async function speakWithElevenLabs(
 function speakWithBrowser(text: string, options: SpeakOptions = {}): void {
   if (typeof window === "undefined" || !window.speechSynthesis) return;
 
+  const voiceText = sanitizeSpeechText(text);
+  if (!voiceText) return;
+
   window.speechSynthesis.cancel();
 
-  const utterance  = new SpeechSynthesisUtterance(text);
+  const utterance  = new SpeechSynthesisUtterance(voiceText);
   utterance.lang   = options.language ?? "en-US";
   utterance.rate   = options.rate     ?? 1.0;
   utterance.pitch  = options.pitch    ?? 1.0;

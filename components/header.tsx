@@ -185,6 +185,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
     { href: '/about',    label: 'About'    },
     { href: '/services', label: 'Services' },
     { href: '/policy',   label: 'Policy'   },
+    { href: '/account',  label: 'Account'  },
   ];
 
   // Market-aware announcement bar
@@ -201,7 +202,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
       scrolled ? 'bg-white/95 backdrop-blur-md shadow-md' : 'bg-white border-b border-gray-100'
     }`}>
       {/* Announcement bar */}
-      <div className="bg-violet-700 text-white text-xs py-2 text-center tracking-wide font-medium">
+      <div className="bg-gradient-to-r from-violet-700 via-fuchsia-600 to-violet-700 text-white text-xs py-2 text-center tracking-wide font-medium">
         {announcementText}
       </div>
 
@@ -212,13 +213,13 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
           {/* Replace /images/logo.png with your actual logo path */}
           <Link href="/" className="shrink-0 flex items-center gap-2">
             {/* LOGO IMAGE — set your image path below */}
-            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-violet-100 flex items-center justify-center">
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center shadow-md shadow-violet-200">
               {/* Uncomment next line and remove the fallback span once you have a logo */}
               {/* <Image src="/images/logo.png" alt="MaestraVibe" fill className="object-contain" priority /> */}
-              <span className="text-violet-600 font-black text-lg">M</span>
+              <span className="text-white font-black text-lg">M</span>
             </div>
             <span className="text-2xl font-black tracking-tighter text-gray-900">
-              MAESTRA<span className="text-violet-600">VIBE</span>
+              MAESTRA<span className="bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">VIBE</span>
             </span>
           </Link>
 
@@ -249,7 +250,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
                 placeholder="Search products, brands, categories..."
                 className="flex-1 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none bg-white"
               />
-              <button type="submit" className="px-4 bg-violet-600 hover:bg-violet-700 text-white transition">
+              <button type="submit" className="px-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white transition-all">
                 <SearchIcon />
               </button>
             </div>
@@ -282,11 +283,11 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
 
             {/* Cart */}
             <button onClick={onCartClick}
-              className="relative flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2.5 rounded-xl transition font-medium text-sm">
+              className="relative flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white px-4 py-2.5 rounded-xl transition-all font-medium text-sm shadow-md shadow-violet-200 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
               <CartIcon />
               <span className="hidden sm:inline">Cart</span>
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none">
+                <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none ring-2 ring-white">
                   {cartCount > 9 ? '9+' : cartCount}
                 </span>
               )}
@@ -305,19 +306,19 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search products..."
             className="flex-1 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none" />
-          <button type="submit" className="px-4 bg-violet-600 text-white hover:bg-violet-700 transition">
+          <button type="submit" className="px-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 transition-all">
             <SearchIcon />
           </button>
         </form>
       </div>
 
-      {/* Category strip */}
+      {/* Category strip — swipeable on mobile */}
       <div className="border-t border-gray-100 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-1.5 overflow-x-auto py-2 scrollbar-hide">
+          <div className="flex gap-1.5 overflow-x-auto py-2 scrollbar-hide snap-x snap-mandatory scroll-px-4 -mx-4 px-4">
             {CATEGORIES.map(c => (
               <button key={c.value} onClick={() => handleCategory(c.value)}
-                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold text-gray-600 hover:bg-violet-100 hover:text-violet-700 transition whitespace-nowrap">
+                className="flex-shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-semibold text-gray-600 hover:bg-violet-100 hover:text-violet-700 transition whitespace-nowrap active:scale-95">
                 {c.name}
               </button>
             ))}

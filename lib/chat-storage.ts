@@ -154,6 +154,31 @@ export function exportChatHistory(): string {
   }
 }
 
+export function saveUserPreferences(prefs: {
+  preferredCategories?: string[];
+  priceRange?: { min: number; max: number };
+  lastSearchTerms?: string[];
+}): void {
+  try {
+    localStorage.setItem('mv_user_prefs', JSON.stringify(prefs));
+  } catch {
+    // Silently fail
+  }
+}
+
+export function getUserPreferences(): {
+  preferredCategories?: string[];
+  priceRange?: { min: number; max: number };
+  lastSearchTerms?: string[];
+} {
+  try {
+    const raw = localStorage.getItem('mv_user_prefs');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function getStorageInfo(): {
   used: number;
   sessionCount: number;

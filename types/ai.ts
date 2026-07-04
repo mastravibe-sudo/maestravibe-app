@@ -51,6 +51,17 @@ export interface AIChatRequest {
   messages: ChatMessage[];
   products: NormalizedProduct[];
   market:   Market;
+  pageContext?: string;
+  cartItems?: Array<{
+    name: string;
+    price: number;
+    qty: number;
+  }>;
+  userPrefs?: {
+    preferredCategories?: string[];
+    priceRange?: { min: number; max: number };
+    lastSearchTerms?: string[];
+  };
 }
 
 export interface AIChatResponse {

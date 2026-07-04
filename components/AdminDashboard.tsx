@@ -142,7 +142,7 @@ function VariantEditor({
             Generate all combos
           </button>
           <button type="button" onClick={addVariant}
-            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700 transition flex items-center gap-1 whitespace-nowrap">
+            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 transition-all flex items-center gap-1 whitespace-nowrap shadow-sm">
             <PlusIcon /> Add row
           </button>
         </div>
@@ -416,7 +416,7 @@ function ProductModal({ product, onClose, onSaved }: {
                 {[{ value: 'pk', label: '🇵🇰 Pakistan' },{ value: 'us', label: '🇺🇸 USA' },{ value: 'both', label: '🌍 Both' }].map(opt => (
                   <button key={opt.value} type="button"
                     onClick={() => setForm(p => ({ ...p, market_availability: opt.value as any }))}
-                    className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all ${form.market_availability === opt.value ? 'border-violet-500 bg-violet-600 text-white' : 'border-gray-200 text-gray-600 hover:border-violet-300'}`}>
+                    className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all ${form.market_availability === opt.value ? 'border-violet-500 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' : 'border-gray-200 text-gray-600 hover:border-violet-300'}`}>
                     {opt.label}
                   </button>
                 ))}
@@ -429,7 +429,7 @@ function ProductModal({ product, onClose, onSaved }: {
                 <FestIco />
                 <label className="text-sm font-semibold text-gray-700">Festival Sale</label>
                 {festivalInfo?.enabled && (
-                  <span className="text-xs bg-violet-600 text-white px-2 py-0.5 rounded-full font-bold">LIVE: {festivalInfo.label || 'Festival active'}</span>
+                  <span className="text-xs bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-2 py-0.5 rounded-full font-bold">LIVE: {festivalInfo.label || 'Festival active'}</span>
                 )}
               </div>
               <input name="festival_tag" value={form.festival_tag} onChange={handle}
@@ -474,7 +474,7 @@ function ProductModal({ product, onClose, onSaved }: {
               <div className="flex flex-wrap gap-1.5">
                 {CATEGORIES.map(c => (
                   <button key={c.value} type="button" onClick={() => setForm(p => ({ ...p, category: c.value }))}
-                    className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${form.category === c.value ? 'bg-violet-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-violet-50 hover:text-violet-600'}`}>
+                    className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all ${form.category === c.value ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-violet-50 hover:text-violet-600'}`}>
                     {c.label}
                   </button>
                 ))}
@@ -517,7 +517,7 @@ function ProductModal({ product, onClose, onSaved }: {
                     <p className="text-xs text-gray-400">Useful when e.g. Large costs more than Small</p>
                   </div>
                 </div>
-                <span className={`w-10 h-5 rounded-full relative transition-colors shrink-0 ${showVariants ? 'bg-violet-600' : 'bg-gray-200'}`}>
+                <span className={`w-10 h-5 rounded-full relative transition-colors shrink-0 ${showVariants ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' : 'bg-gray-200'}`}>
                   <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showVariants ? 'translate-x-5' : ''}`} />
                 </span>
               </button>
@@ -556,7 +556,7 @@ function ProductModal({ product, onClose, onSaved }: {
 
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={onClose} className="flex-1 border-2 border-gray-200 text-gray-600 py-3 rounded-2xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
-              <button type="submit" disabled={saving} className="flex-1 bg-violet-600 text-white py-3 rounded-2xl text-sm font-bold hover:bg-violet-700 disabled:opacity-60 transition-all">
+              <button type="submit" disabled={saving} className="flex-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-3 rounded-2xl text-sm font-bold hover:from-violet-700 hover:to-fuchsia-700 disabled:opacity-60 transition-all shadow-md shadow-violet-200">
                 {saving ? 'Saving...' : isEdit ? 'Update Product' : 'Add Product'}
               </button>
             </div>
@@ -591,6 +591,7 @@ function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => voi
             <div className="bg-violet-50 rounded-2xl p-4 space-y-2 border border-violet-100">
               <p className="text-xs font-bold text-violet-600 uppercase tracking-wide mb-3">Customer Info</p>
               {[
+                { label: 'Customer ID', value: order.id?.slice(0, 8) },
                 { label: 'Name',    value: order.customer?.name    },
                 { label: 'Phone',   value: order.customer?.phone   },
                 { label: 'Email',   value: order.customer?.email   },
@@ -693,7 +694,7 @@ function BulkEmailModal({ subscribers, onClose }: { subscribers: Subscriber[]; o
             )}
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={onClose} className="flex-1 border-2 border-gray-200 text-gray-600 py-3 rounded-2xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
-              <button type="submit" disabled={sending} className="flex-1 bg-violet-600 text-white py-3 rounded-2xl text-sm font-bold hover:bg-violet-700 disabled:opacity-60 flex items-center justify-center gap-2">
+              <button type="submit" disabled={sending} className="flex-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-3 rounded-2xl text-sm font-bold hover:from-violet-700 hover:to-fuchsia-700 disabled:opacity-60 flex items-center justify-center gap-2 shadow-md shadow-violet-200">
                 <EmailIcon />{sending ? 'Sending...' : `Send to All (${subscribers.length})`}
               </button>
             </div>
@@ -822,13 +823,14 @@ export default function AdminDashboard() {
       {viewOrder      && <OrderDetailModal order={viewOrder} onClose={() => setViewOrder(undefined)} />}
       {showEmailModal && <BulkEmailModal subscribers={subscribers} onClose={() => setShowEmailModal(false)} />}
 
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-violet-50/30">
+      {/* ── ROOT SHELL: fixed viewport height, only inner regions scroll ── */}
+      <div className="h-screen flex flex-col bg-gradient-to-br from-gray-50 to-violet-50/30 overflow-hidden">
 
-        {/* Top Nav */}
-        <div className="bg-white border-b border-gray-100 sticky top-0 z-30 shadow-sm">
+        {/* Top Nav — fixed, never scrolls */}
+        <div className="bg-white border-b border-gray-100 shrink-0 shadow-sm z-30">
           <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-violet-800 rounded-2xl flex items-center justify-center shadow-md shadow-violet-200">
+              <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-2xl flex items-center justify-center shadow-md shadow-violet-200">
                 <span className="text-white font-black text-sm">MV</span>
               </div>
               <div>
@@ -839,13 +841,13 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-2">
               {activeTab === 'products' && (
                 <button onClick={() => setShowAddModal(true)}
-                  className="bg-violet-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-violet-700 transition-all shadow-sm shadow-violet-200 flex items-center gap-1.5">
+                  className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-sm shadow-violet-200 flex items-center gap-1.5">
                   <PlusIcon /> Add Product
                 </button>
               )}
               {activeTab === 'subscribers' && subscribers.length > 0 && (
                 <button onClick={() => setShowEmailModal(true)}
-                  className="bg-violet-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-violet-700 transition-all shadow-sm flex items-center gap-1.5">
+                  className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:from-violet-700 hover:to-fuchsia-700 transition-all shadow-sm flex items-center gap-1.5">
                   <EmailIcon /> Bulk Email
                 </button>
               )}
@@ -863,23 +865,24 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-6">
+        {/* ── Body: fills remaining height, itself does not scroll ── */}
+        <div className="flex-1 min-h-0 max-w-[1600px] w-full mx-auto px-4 md:px-8 py-6 flex flex-col">
 
-          {/* Stats — only meaningful outside homepage, but kept visible everywhere for consistency */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {/* Stats — fixed, never scrolls */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 shrink-0">
             <StatCard label="Total Revenue"  value={`Rs. ${totalSale.toLocaleString()}`}    sub={`${completedOrDelivered.length} completed orders`} color="bg-green-50 border-green-200"   textColor="text-green-700" />
             <StatCard label="Total Profit"   value={`Rs. ${totalProfit.toLocaleString()}`}  sub={totalSale > 0 ? `${Math.round((totalProfit/totalSale)*100)}% margin` : 'No sales yet'}   color="bg-violet-50 border-violet-200" textColor="text-violet-700" />
             <StatCard label="Pending Orders" value={String(pendingOrders)}                  sub={`${orders.length} total orders`}                   color="bg-amber-50 border-amber-200"   textColor="text-amber-700" />
             <StatCard label="Products"       value={String(products.length)}                sub={`${subscribers.length} subscribers`}               color="bg-blue-50 border-blue-200"     textColor="text-blue-700" />
           </div>
 
-          {/* ── DASHBOARD SHELL: dark sidebar + content card, consistent for every tab ── */}
-          <div className="flex rounded-2xl shadow-sm border-2 border-gray-100 overflow-hidden min-h-[640px] bg-white">
+          {/* ── DASHBOARD SHELL: dark sidebar + content card, fills remaining space, only inner panes scroll ── */}
+          <div className="flex-1 min-h-0 flex rounded-2xl shadow-sm border-2 border-gray-100 overflow-hidden bg-white">
 
-            {/* Sidebar */}
-            <aside className={`${sidebarOpen ? 'w-60' : 'w-16'} shrink-0 bg-gray-900 flex flex-col transition-all duration-200`}>
-              <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-800">
-                <div className="w-8 h-8 bg-violet-600 rounded-xl flex items-center justify-center shrink-0">
+            {/* Sidebar — fixed, own scroll only if nav overflows */}
+            <aside className={`${sidebarOpen ? 'w-60' : 'w-16'} shrink-0 bg-gray-900 flex flex-col transition-all duration-200 h-full`}>
+              <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-800 shrink-0">
+                <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-xl flex items-center justify-center shrink-0">
                   <ProductsIco />
                 </div>
                 {sidebarOpen && <span className="text-white font-black text-sm">Store CMS</span>}
@@ -888,13 +891,13 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              <nav className="flex-1 py-3 space-y-0.5 px-2">
+              <nav className="flex-1 min-h-0 overflow-y-auto py-3 space-y-0.5 px-2">
                 {NAV.map(item => {
                   const active = activeTab === item.key;
                   return (
                     <button key={item.key} onClick={() => setActiveTab(item.key)}
                       className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all group ${
-                        active ? 'bg-violet-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                        active ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-900/40' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                       }`}>
                       <span className="shrink-0">{item.icon}</span>
                       {sidebarOpen && (
@@ -902,12 +905,12 @@ export default function AdminDashboard() {
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-semibold truncate">{item.label}</span>
                             {item.count !== undefined && (
-                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-violet-500 text-white' : 'bg-gray-700 text-gray-300'}`}>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-white/20 text-white' : 'bg-gray-700 text-gray-300'}`}>
                                 {item.count}
                               </span>
                             )}
                           </div>
-                          <span className={`text-xs truncate ${active ? 'text-violet-200' : 'text-gray-600'}`}>{item.desc}</span>
+                          <span className={`text-xs truncate ${active ? 'text-violet-100' : 'text-gray-600'}`}>{item.desc}</span>
                         </div>
                       )}
                     </button>
@@ -916,7 +919,7 @@ export default function AdminDashboard() {
               </nav>
 
               {sidebarOpen && (
-                <div className="px-4 py-4 border-t border-gray-800 space-y-2">
+                <div className="px-4 py-4 border-t border-gray-800 space-y-2 shrink-0">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">Pending Orders</span>
                     <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-amber-900 text-amber-400">{pendingOrders}</span>
@@ -929,8 +932,8 @@ export default function AdminDashboard() {
               )}
             </aside>
 
-            {/* Main content */}
-            <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+            {/* Main content — this is the ONLY area that scrolls */}
+            <main className="flex-1 min-w-0 min-h-0 overflow-y-auto bg-gray-50 p-6">
 
               {/* Order sub-filters */}
               {activeTab === 'orders' && (
@@ -970,9 +973,9 @@ export default function AdminDashboard() {
                       {/* PRODUCTS */}
                       {activeTab === 'products' && (
                         <table className="w-full text-sm">
-                          <thead className="bg-gray-50 border-b-2 border-gray-100">
+                          <thead className="bg-gray-50 border-b-2 border-gray-100 sticky top-0 z-10">
                             <tr>
-                              {['Image','Name','Sell Price','Cost','Profit / Item','Category','Tags','Festival','Variants','Colors','Sizes','Actions'].map(h => (
+                              {['Image','Name','Sell Price','Cost','Profit / Item','Category','Owner','Tags','Festival','Variants','Colors','Sizes','Actions'].map(h => (
                                 <th key={h} className="text-left px-4 py-3.5 text-gray-500 font-semibold text-xs uppercase tracking-wide whitespace-nowrap">{h}</th>
                               ))}
                             </tr>
@@ -1008,6 +1011,11 @@ export default function AdminDashboard() {
                                   </td>
                                   <td className="px-4 py-3.5">
                                     <span className="text-xs bg-violet-100 text-violet-700 px-2.5 py-1 rounded-full font-semibold capitalize">{p.category}</span>
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${p.owner_type === 'merchant' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>
+                                      {p.owner_type === 'merchant' ? (p.merchant_name || 'Merchant') : 'MaestraVibe'}
+                                    </span>
                                   </td>
                                   <td className="px-4 py-3.5">
                                     <div className="flex gap-1 flex-wrap max-w-32">
@@ -1076,9 +1084,9 @@ export default function AdminDashboard() {
                       {/* ORDERS */}
                       {activeTab === 'orders' && (
                         <table className="w-full text-sm">
-                          <thead className="bg-gray-50 border-b-2 border-gray-100">
+                          <thead className="bg-gray-50 border-b-2 border-gray-100 sticky top-0 z-10">
                             <tr>
-                              {['Customer','Phone','City','Total','Items','Date','Status','Update Status','Actions'].map(h => (
+                              {['Customer ID','Customer','Phone','City','Total','Items','Date','Status','Update Status','Actions'].map(h => (
                                 <th key={h} className="text-left px-3 py-3.5 text-gray-500 font-semibold text-xs uppercase tracking-wide whitespace-nowrap">{h}</th>
                               ))}
                             </tr>
@@ -1088,6 +1096,7 @@ export default function AdminDashboard() {
                               <tr><td colSpan={9} className="text-center py-16 text-gray-400"><p className="font-semibold">No orders</p></td></tr>
                             ) : filteredOrders.map(o => (
                               <tr key={o.id} className="hover:bg-violet-50/30 transition-colors">
+                                <td className="px-3 py-3.5 font-mono text-gray-700 whitespace-nowrap">#{o.id?.slice(0, 8)}</td>
                                 <td className="px-3 py-3.5 font-semibold text-gray-800 whitespace-nowrap">{o.customer?.name}</td>
                                 <td className="px-3 py-3.5 text-gray-600 whitespace-nowrap">{o.customer?.phone}</td>
                                 <td className="px-3 py-3.5 text-gray-600">{o.customer?.city}</td>
@@ -1125,7 +1134,7 @@ export default function AdminDashboard() {
                       {/* SUBSCRIBERS */}
                       {activeTab === 'subscribers' && (
                         <table className="w-full text-sm">
-                          <thead className="bg-gray-50 border-b-2 border-gray-100">
+                          <thead className="bg-gray-50 border-b-2 border-gray-100 sticky top-0 z-10">
                             <tr>{['#','Email','Subscribed At','Actions'].map(h => <th key={h} className="text-left px-4 py-3.5 text-gray-500 font-semibold text-xs uppercase tracking-wide">{h}</th>)}</tr>
                           </thead>
                           <tbody className="divide-y divide-gray-50">
@@ -1150,7 +1159,7 @@ export default function AdminDashboard() {
                       {/* SUBMISSIONS */}
                       {activeTab === 'submissions' && (
                         <table className="w-full text-sm">
-                          <thead className="bg-gray-50 border-b-2 border-gray-100">
+                          <thead className="bg-gray-50 border-b-2 border-gray-100 sticky top-0 z-10">
                             <tr>{['Name','Email','Type','Subject','Status','Date','Actions'].map(h => <th key={h} className="text-left px-4 py-3.5 text-gray-500 font-semibold text-xs uppercase tracking-wide">{h}</th>)}</tr>
                           </thead>
                           <tbody className="divide-y divide-gray-50">

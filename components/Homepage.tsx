@@ -60,6 +60,49 @@ const TESTIMONIALS = [
   { name: 'Bilal M.',   city: 'Islamabad', text: 'Amazing quality! Got it in 3 days and the size was perfect. Customer support was also very helpful.', rating: 5 },
 ];
 
+const OCCASIONS_PK = [
+  { label: 'Eid Collection', emoji: '🌙', query: 'eid', gradient: 'from-emerald-500 to-teal-600' },
+  { label: 'Wedding Ready', emoji: '💍', query: 'wedding', gradient: 'from-rose-500 to-pink-600' },
+  { label: 'Office Looks', emoji: '💼', query: 'formal', gradient: 'from-slate-600 to-gray-700' },
+  { label: 'Casual Vibes', emoji: '👕', query: 'casual', gradient: 'from-blue-500 to-indigo-600' },
+  { label: 'Glow Up ✨', emoji: '💎', query: 'accessories', gradient: 'from-amber-500 to-orange-500' },
+  { label: 'On Sale 🔥', emoji: '🏷️', query: 'sale', gradient: 'from-red-500 to-rose-600' },
+];
+
+const OCCASIONS_US = [
+  { label: 'Summer Looks', emoji: '☀️', query: 'summer', gradient: 'from-orange-500 to-amber-500' },
+  { label: 'Work Outfits', emoji: '💼', query: 'formal', gradient: 'from-slate-600 to-gray-700' },
+  { label: 'Party Ready', emoji: '🎉', query: 'dress', gradient: 'from-rose-500 to-pink-600' },
+  { label: 'Casual Style', emoji: '👕', query: 'casual', gradient: 'from-blue-500 to-indigo-600' },
+  { label: 'Accessories', emoji: '💍', query: 'accessories', gradient: 'from-violet-500 to-purple-600' },
+  { label: 'On Sale 🔥', emoji: '🏷️', query: 'sale', gradient: 'from-red-500 to-rose-600' },
+];
+
+const TRENDING_PK = [
+  'Lawn suits', 'Wireless earbuds', 'Watches for men', 'Summer kurtis', 'Kids shoes', 'Gold earrings', 'Shalwar kameez', 'Sunglasses', 'Casual sneakers', 'Bridal jewelry', 'Office bags', 'Perfume',
+];
+
+const TRENDING_US = [
+  'Summer dresses', 'Sneakers', 'Watches', 'Sunglasses', 'Handbags', 'Jewelry', 'Kids clothes', 'Casual shirts',
+];
+
+const FAQS_PK = [
+  { q: 'Kya MaestraVibe Cash on Delivery offer karta hai?', a: 'Haan! Hum poore Pakistan mein Cash on Delivery offer karte hain. Order receive karte waqt payment karein — koi advance nahi.' },
+  { q: 'Delivery mein kitna waqt lagta hai?', a: 'Lahore, Karachi, Islamabad mein 1-2 din. Baqi cities mein 2-4 business days.' },
+  { q: 'Kya main order return kar sakta hun?', a: '7-din ka hassle-free return policy hai. Damaged ya wrong item mili toh full refund ya replacement.' },
+  { q: 'Products genuine hain?', a: 'Haan, 100%. Har product humari team quality verify karti hai.' },
+  { q: 'Minimum order kitna hai?', a: 'Koi minimum order nahi! Rs. 1,500 se upar free delivery milti hai.' },
+  { q: 'MaestraVibe se paise kaise kama saktay hain?', a: 'Reseller program join karein — products share karein, khud profit set karein, hum delivery handle karein.' },
+];
+
+const FAQS_US = [
+  { q: 'Do you offer free shipping?', a: 'Yes! Free shipping on all orders above $50. Standard delivery in 3-7 business days.' },
+  { q: 'What is your return policy?', a: 'We offer a 7-day hassle-free return policy. Damaged or wrong items get a full refund.' },
+  { q: 'Are the products authentic?', a: 'Absolutely. Every product is quality-verified by our team before dispatch.' },
+  { q: 'How do I track my order?', a: 'You will receive a tracking link via email once your order is dispatched.' },
+  { q: 'Can I earn with MaestraVibe?', a: 'Yes! Join our affiliate program — share products and earn commission on every sale.' },
+];
+
 // ─── MARKET CONFIG ────────────────────────────────────────────────────────────
 const MARKET_CONFIG: Record<string, {
   currency: string; symbol: string; freeDeliveryMin: string;
@@ -91,6 +134,9 @@ interface SiteSettings {
   pk_banner_title:     string;
   us_banner_title:     string;
 
+  trending_pk?: string[];
+  trending_us?: string[];
+
   stats_customers:     string;
   stats_products:      string;
   stats_rating:        string;
@@ -113,6 +159,9 @@ const DEFAULT_SETTINGS: SiteSettings = {
 
   pk_banner_title:     '🎉 Sale up to 50% off · Free delivery above Rs. 1,500 · Cash on Delivery · 7-day returns',
   us_banner_title:     '🎉 Sale up to 50% off · Free shipping above $50 · Secure Checkout · Easy Returns',
+
+  trending_pk:         TRENDING_PK,
+  trending_us:         TRENDING_US,
 
   stats_customers:     '10K+',
   stats_products:      '500+',
@@ -374,11 +423,13 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedSizes,  setSelectedSizes]  = useState<string[]>([]);
   const [showFilters,    setShowFilters]    = useState(false);
+  const [faqOpen,        setFaqOpen]        = useState(0);
 
   const [selectedProduct,    setSelectedProduct]    = useState<any>(null);
   const [selectedColor,      setSelectedColor]      = useState('');
   const [selectedSize,       setSelectedSize]       = useState('');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [quantity,           setQuantity]           = useState(1);
   const [viewProductPage,    setViewProductPage]    = useState<any>(null);
 
   const [cart,        setCart]        = useState<any[]>([]);
@@ -509,6 +560,9 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
     ? allProducts.filter(p => p.festival_tag && p.festival_tag === siteSettings.festival_category).slice(0, 8)
     : [];
   const activeFiltersCount = (priceMin || priceMax ? 1 : 0) + (selectedColors.length ? 1 : 0) + (selectedSizes.length ? 1 : 0);
+  const occasions = isPK ? OCCASIONS_PK : OCCASIONS_US;
+  const trendingSearches = isPK ? (siteSettings.trending_pk ?? TRENDING_PK) : (siteSettings.trending_us ?? TRENDING_US);
+  const faqList = isPK ? FAQS_PK : FAQS_US;
 
   // ── Actions ──
   const navigateTo = (cat = 'all', q = '') => {
@@ -529,6 +583,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
     setSelectedColor(product.colors?.[0] ?? '');
     setSelectedSize(product.sizes?.[0] ?? 'Standard');
     setSelectedImageIndex(0);
+    setQuantity(1);
     setRecentlyViewed(prev => {
       const f = prev.filter(p => p._id !== product._id);
       const u = [product, ...f].slice(0, 8);
@@ -538,15 +593,14 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const addToCart = (product: any, color?: string, size?: string) => {
+  const addToCart = (product: any, color?: string, size?: string, qty = 1) => {
     const finalColor = color ?? selectedColor ?? product.colors?.[0] ?? '';
     const finalSize  = size ?? selectedSize ?? product.sizes?.[0] ?? 'Standard';
-    // Variant-aware price: agar is size+color ka apna price set hai to wo use hoga
     const finalPrice = effectivePrice(product, finalSize, finalColor);
-    const item = { ...product, price: finalPrice, selectedColor: finalColor, selectedSize: finalSize, quantity: 1 };
+    const item = { ...product, price: finalPrice, selectedColor: finalColor, selectedSize: finalSize, quantity: qty };
     setCart(prev => {
       const idx = prev.findIndex(i => i._id === item._id && i.selectedColor === item.selectedColor && i.selectedSize === item.selectedSize);
-      if (idx >= 0) { const u = [...prev]; u[idx] = { ...u[idx], quantity: u[idx].quantity + 1 }; return u; }
+      if (idx >= 0) { const u = [...prev]; u[idx] = { ...u[idx], quantity: u[idx].quantity + qty }; return u; }
       return [...prev, item];
     });
     setAddedToCart(product._id);
@@ -554,11 +608,11 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
     setSelectedProduct(null);
   };
 
-  const handleBuyNow = (product: any, color?: string, size?: string) => {
+  const handleBuyNow = (product: any, color?: string, size?: string, qty = 1) => {
     const finalColor = color ?? product.colors?.[0] ?? '';
     const finalSize  = size ?? product.sizes?.[0] ?? 'Standard';
     const finalPrice = effectivePrice(product, finalSize, finalColor);
-    const item = { ...product, price: finalPrice, selectedColor: finalColor, selectedSize: finalSize, quantity: 1 };
+    const item = { ...product, price: finalPrice, selectedColor: finalColor, selectedSize: finalSize, quantity: qty };
     setCheckoutProduct(item);
     setSelectedProduct(null); setViewProductPage(null);
     setCheckoutStep(1); setShowCheckout(true);
@@ -659,6 +713,11 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
           <button onClick={e => { e.stopPropagation(); openProduct(product); }} className="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:scale-110 transition-transform"><EyeIco /></button>
         </div>
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" onClick={() => openProductPage(product)} />
+        {Number.isFinite(product.discount_percent) && product.discount_percent > 0 && (
+          <span className="absolute top-2 left-2 mt-12 bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-sm">
+            {product.discount_percent}% OFF
+          </span>
+        )}
       </div>
       <div className="p-4 flex flex-col flex-1">
         <h3 onClick={() => openProductPage(product)} className="font-semibold text-sm mb-1.5 line-clamp-2 cursor-pointer hover:text-violet-600 transition-colors text-gray-800">{product.name}</h3>
@@ -742,6 +801,14 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
                   </span>
                 )}
               </div>
+              <div className="flex items-center gap-3 mb-5">
+                <p className="font-bold text-sm text-gray-800">{isPK ? 'تعداد:' : 'Quantity:'}</p>
+                <div className="flex items-center border-2 border-gray-200 rounded-xl overflow-hidden">
+                  <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 font-bold text-gray-700 transition">−</button>
+                  <span className="w-12 text-center font-black text-gray-900">{quantity}</span>
+                  <button onClick={() => setQuantity(q => q + 1)} className="w-10 h-10 flex items-center justify-center hover:bg-gray-100 font-bold text-gray-700 transition">+</button>
+                </div>
+              </div>
               <p className="text-gray-600 text-sm leading-relaxed mb-6 whitespace-pre-line">{p.description}</p>
               {p.colors?.length > 0 && (
                 <div className="mb-5">
@@ -760,8 +827,19 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
               )}
               {!(p.has_variants && p.variants?.length > 0) && <div className="mb-7" />}
               <div className="flex gap-3 mb-4">
-                <button onClick={() => addToCart(p)} disabled={!!outOfStock} className="flex-1 py-4 bg-gray-900 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm transition-colors flex items-center justify-center gap-2"><CartIco cls="w-4 h-4" /> Add to Cart</button>
-                <button onClick={() => handleBuyNow(p)} disabled={!!outOfStock} className="flex-1 py-4 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm transition-colors">Buy Now</button>
+                <button onClick={() => addToCart(p, selectedColor, selectedSize, quantity)} disabled={!!outOfStock} className="flex-1 py-4 bg-gray-900 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm transition-colors flex items-center justify-center gap-2"><CartIco cls="w-4 h-4" /> Add to Cart</button>
+                <button onClick={() => handleBuyNow(p, selectedColor, selectedSize, quantity)} disabled={!!outOfStock} className="flex-1 py-4 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-2xl font-bold text-sm transition-colors">Buy Now</button>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => {
+                  const text = `Check this on MaestraVibe!\n${p.name}\nPrice: ${formatPrice(displayPrice, market)}\n${window.location.href}`;
+                  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`);
+                }} className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-green-600 transition">
+                  📲 {isPK ? 'WhatsApp pe Share' : 'Share on WhatsApp'}
+                </button>
+                <button onClick={() => { navigator.clipboard.writeText(window.location.href); }} className="flex items-center gap-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-xl text-sm font-semibold hover:bg-gray-200 transition">
+                  🔗 {isPK ? 'Link Copy Karo' : 'Copy Link'}
+                </button>
               </div>
               <div className="grid grid-cols-3 gap-3 text-center">
                 {[
@@ -786,7 +864,13 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
           )}
         </div>
         {/* ── Full AI Chat — product page par bhi ── */}
-        <AIChat products={chatProducts} onOpenProduct={openProductPage} />
+        <AIChat
+          products={chatProducts}
+          onOpenProduct={openProductPage}
+          onAddToCart={addToCart}
+          pageContext={`Product Page • ${p.category} • ${p.name} • ${selectedSize} • ${selectedColor || 'Default'}`}
+          cartItems={cart.map(item => ({ name: item.name, price: item.price, qty: item.quantity }))}
+        />
       </main>
     );
   }
@@ -1165,7 +1249,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
                 <button key={cat.value} onClick={() => setActiveCategory(cat.value)} className={`shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${activeCategory === cat.value ? 'bg-violet-600 text-white shadow-sm' : 'bg-white text-gray-600 hover:bg-violet-50 hover:text-violet-600 border border-gray-200'}`}>
                   {cat.emoji} {cat.label}
                 </button>
-              ))}
+              ))}s
             </div>
             <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
               <div className="flex items-center gap-2 flex-wrap">
@@ -1410,7 +1494,38 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
       )}
 
       {/* ── ASTRO BHAI AI CHAT — Full version, har page par ── */}
-      <AIChat products={chatProducts} onOpenProduct={openProductPage} />
+      <AIChat
+        products={chatProducts}
+        onOpenProduct={openProductPage}
+        onAddToCart={addToCart}
+        pageContext={`${view === 'shop' ? 'Shop' : 'Home'} • ${activeCategory !== 'all' ? activeCategory : 'All categories'} • ${searchQuery || 'No search'} • ${viewProductPage ? `Viewing ${viewProductPage.name}` : 'Browsing'}`}
+        cartItems={cart.map(item => ({ name: item.name, price: item.price, qty: item.quantity }))}
+      />
+
+      {/* Mobile bottom navigation */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-white/95 border-t border-gray-200 backdrop-blur-xl shadow-[0_-8px_30px_-15px_rgba(0,0,0,0.25)]">
+        <div className="grid grid-cols-4 px-2 py-2">
+          <button onClick={() => { setView('home'); setViewProductPage(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex flex-col items-center gap-1 py-2 text-xs font-semibold text-gray-700">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3m10-11v10a1 1 0 01-1 1h-3"/></svg>
+            Home
+          </button>
+          <button onClick={() => { setView('shop'); setActiveCategory('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className="flex flex-col items-center gap-1 py-2 text-xs font-semibold text-gray-700">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7"/></svg>
+            Shop
+          </button>
+          <button onClick={() => setShowCart(true)} className="flex flex-col items-center gap-1 py-2 text-xs font-semibold text-gray-700">
+            <div className="relative">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 7H4l1-7z"/></svg>
+              {cartCount > 0 && <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[8px] font-black rounded-full min-w-[14px] h-[14px] px-1 flex items-center justify-center">{cartCount}</span>}
+            </div>
+            Cart
+          </button>
+          <button onClick={() => setShowCart(true)} className="flex flex-col items-center gap-1 py-2 text-xs font-semibold text-gray-700">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7"/></svg>
+            More
+          </button>
+        </div>
+      </div>
 
     </main>
   );

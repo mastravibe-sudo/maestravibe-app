@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useMarket } from '@/lib/market-context';
 import {
   saveChatMessage,
   getCurrentChatSession,
   startNewChatSession,
   clearAllChatHistory,
+  getUserPreferences,
+  saveUserPreferences,
 } from '@/lib/chat-storage';
 import {
   isSpeechRecognitionAvailable,
@@ -23,6 +26,7 @@ interface Message {
 }
 
 interface ProductSuggestion {
+  description: string;
   _id: string;
   name: string;
   price: number;
@@ -42,9 +46,14 @@ interface AIChatProps {
     sizes: string[];
   }[];
   onOpenProduct: (product: any) => void;
+  onAddToCart?: (product: any) => void;
+  pageContext?: string;
+  cartItems?: Array<{ name: string; price: number; qty: number }>;
 }
 
-export default function AIChat({ products, onOpenProduct }: AIChatProps) {
+export default function AIChat({ products, onOpenProduct, onAddToCart, pageContext = '', cartItems = [] }: AIChatProps) {
+  const { market } = useMarket();
+  const isPK = market === 'pk';
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -114,9 +123,19 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     saveChatMessage(userText, 'user');
+    const existingPrefs = getUserPreferences();
+    const extractedCategories = products
+      .filter((p) => [p.name, p.category, p.description].some((field) => field?.toLowerCase().includes(userText.toLowerCase())))
+      .map((p) => p.category)
+      .filter(Boolean);
+    saveUserPreferences({
+      preferredCategories: Array.from(new Set([...(existingPrefs.preferredCategories ?? []), ...extractedCategories])).slice(0, 5),
+      lastSearchTerms: Array.from(new Set([...(existingPrefs.lastSearchTerms ?? []), userText])).slice(-8),
+    });
     setLoading(true);
 
     try {
+      const userPrefs = getUserPreferences();
       const response = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -126,6 +145,10 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
             content: m.content,
           })),
           products,
+          market,
+          pageContext,
+          cartItems,
+          userPrefs,
         }),
       });
 
@@ -135,7 +158,13 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
       }
 
       const data = await response.json();
-      const assistantText = data.message || 'Maafi chahta hoon, kuch masla hua. Dobara try karein.';
+      const rawAssistantText = data.message || 'Maafi chahta hoon, kuch masla hua. Dobara try karein.';
+      const assistantText = rawAssistantText
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1')
+        .replace(/https?:\/\/\S+/gi, '')
+        .replace(/(^|\n)\s*[-*•]+\s*/g, '$1')
+        .replace(/(^|\n)\s*\d+\.\s*/g, '$1')
+        .trim();
 
       // Find suggested products
       const suggestedProducts: ProductSuggestion[] = (
@@ -156,9 +185,11 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
       if (!open) setUnread((u) => u + 1);
 
       // Optional: Speak the response
-      if (hasTextToSpeech && input) {
+      if (hasTextToSpeech) {
         ttsStopRef.current = speakText(assistantText, {
-          language: 'ur-PK',
+          language: isPK ? 'ur-PK' : 'en-US',
+          rate: isPK ? 0.95 : 1.05,
+          pitch: isPK ? 0.95 : 1.0,
           onEnd: () => {
             ttsStopRef.current = null;
           },
@@ -228,7 +259,7 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
       {/* ── FLOATING BUTTON ── */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-90 bg-rose-600 hover:bg-rose-700 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-2xl transition-all hover:scale-110 active:scale-95"
+        className="fixed bottom-6 right-6 z-90 bg-[#F2A33C] hover:bg-[#d6942f] text-[#1F2345] rounded-full w-14 h-14 flex items-center justify-center shadow-[0_24px_48px_rgba(242,163,60,0.22)] transition-all hover:scale-110 active:scale-95"
         title="AI Assistant se poochein"
       >
         <svg
@@ -253,25 +284,25 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
 
       {/* ── CHAT WINDOW ── */}
       {open && (
-        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-95 w-full md:w-96 h-dvh md:h-150 bg-white md:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-gray-100">
+        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-95 w-full md:w-96 h-dvh md:h-150 bg-[#F7EFE8] md:rounded-[32px] shadow-[0_32px_80px_rgba(33,34,56,0.18)] flex flex-col overflow-hidden ring-1 ring-[#E9D6C6]">
           {/* Header */}
-          <div className="bg-rose-600 px-4 py-3 flex items-center justify-between shrink-0">
+          <div className="bg-[#1F2345] px-4 py-3 flex items-center justify-between shrink-0 ring-1 ring-[#3C3F65]/10">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center text-lg">
+              <div className="w-10 h-10 bg-[#F2A33C] rounded-full flex items-center justify-center text-lg shadow-[0_0_0_8px_rgba(242,163,60,0.16)]">
                 🤖
               </div>
               <div>
-                <p className="text-white font-bold text-sm">MaestraVibe AI</p>
-                <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                  <p className="text-rose-100 text-xs">Online — Madad ke liye taiyaar</p>
+                <p className="text-[#F7EFE8] font-semibold text-sm tracking-tight">MaestraVibe AI</p>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-[#8DCB8A] rounded-full animate-pulse" />
+                  <p className="text-[#D8C6B1] text-xs">Online — madad ke liye taiyaar</p>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowSettings(!showSettings)}
-                className="text-white/80 hover:text-white transition"
+                className="text-[#D8C6B1] hover:text-white transition"
                 title="Settings"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -300,7 +331,7 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
 
           {/* Settings Panel */}
           {showSettings && (
-            <div className="bg-gray-50 border-b border-gray-100 p-3 text-sm space-y-2">
+            <div className="bg-[#FBF5EE] border-b border-[#E9D6C6] p-3 text-sm space-y-2">
               <button
                 onClick={() => {
                   startNewChatSession();
@@ -313,7 +344,7 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
                   ]);
                   setShowSettings(false);
                 }}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-white transition text-gray-700 font-medium flex items-center gap-2"
+                className="w-full text-left px-3 py-2 rounded-2xl bg-white/90 hover:bg-white transition text-[#312D2A] font-medium flex items-center gap-2 ring-1 ring-[#E9D6C6]"
               >
                 <span>🆕</span> New Chat
               </button>
@@ -329,7 +360,7 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
                   ]);
                   setShowSettings(false);
                 }}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-white transition text-red-600 font-medium flex items-center gap-2"
+                className="w-full text-left px-3 py-2 rounded-2xl bg-[#FEEBE7] hover:bg-[#fde4de] transition text-[#B74C4A] font-medium flex items-center gap-2 ring-1 ring-[#F5D0CB]"
               >
                 <span>🗑️</span> Clear History
               </button>
@@ -337,16 +368,16 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F7F0E8]">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] ${msg.role === 'user' ? '' : 'space-y-2'}`}>
                   {/* Bubble */}
                   <div
-                    className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                    className={`px-4 py-3 rounded-[26px] text-sm leading-relaxed whitespace-pre-wrap ${
                       msg.role === 'user'
-                        ? 'bg-rose-600 text-white rounded-br-sm'
-                        : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm'
+                        ? 'bg-[#1F2345] text-[#F7EFE8] rounded-br-[12px] rounded-tl-[26px] rounded-tr-[26px]'
+                        : 'bg-white text-[#312D2A] shadow-[0_18px_40px_rgba(47,35,31,0.08)] border border-[#E9D6C6] rounded-bl-[12px] rounded-tl-[26px] rounded-tr-[26px]'
                     }`}
                   >
                     {msg.content}
@@ -354,50 +385,86 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
 
                   {/* Suggested products */}
                   {msg.products && msg.products.length > 0 && (
-                    <div className="space-y-2 mt-2">
-                      <p className="text-xs text-gray-500 font-medium px-1">Suggested Products:</p>
-                      {msg.products.map((p) => (
-                        <button
-                          key={p._id}
-                          onClick={() => {
-                            onOpenProduct(p);
-                          }}
-                          className="flex items-center gap-3 w-full bg-white border border-gray-100 rounded-2xl p-2.5 hover:border-rose-300 hover:shadow-md transition-all text-left group"
-                        >
-                          {p.images?.[0] ? (
-                            <img
-                              src={p.images[0]}
-                              alt={p.name}
-                              className="w-12 h-12 rounded-xl object-cover shrink-0"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-xl shrink-0">
-                              🛍️
+                    <div className="space-y-3 mt-3">
+                      <div className="flex items-center gap-2 px-1 pb-1">
+                        <span className="w-10 h-0.5 bg-[#F2A33C] rounded-full block" />
+                        <p className="text-xs text-[#6F5E4D] font-semibold uppercase tracking-[0.24em]">Suggested products</p>
+                      </div>
+                      <div className="grid gap-3">
+                        {msg.products.map((p) => {
+                          const fullP = products.find((fp) => fp._id === p._id);
+                          const productToOpen = fullP || p;
+                          return (
+                            <div key={p._id} className="bg-white border border-[#E9D6C6] rounded-[28px] shadow-[0_18px_35px_rgba(47,35,31,0.06)] overflow-hidden">
+                              <div className="grid grid-cols-[94px_minmax(0,1fr)] gap-3 p-3 items-start">
+                                <div className="w-24 h-24 rounded-[24px] overflow-hidden bg-[#1F2345] shadow-inner">
+                                  {p.images?.[0] ? (
+                                    <img
+                                      src={p.images[0]}
+                                      alt={p.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-2xl text-[#D8C6B1]">
+                                      🛍️
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <p className="text-sm font-semibold text-[#1F2345] line-clamp-2">
+                                      {p.name}
+                                    </p>
+                                    <span className="text-xs font-semibold bg-[#F2A33C] text-[#1F2345] px-2 py-1 rounded-full">
+                                      {market === 'pk' ? `Rs ${p.price.toLocaleString()}` : `$${(p.price / 280).toFixed(2)}`}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-[#7C6A58] mt-2 line-clamp-2">
+                                    {p.description || 'Product details available.'}
+                                  </p>
+                                  <div className="mt-3 flex items-center justify-between gap-2">
+                                    <span className="text-[11px] uppercase tracking-[0.18em] text-[#A58D78]">
+                                      {p.category || 'Category'}
+                                    </span>
+                                    <button
+                                      onClick={() => onOpenProduct(productToOpen)}
+                                      className="text-[11px] text-[#1F2345] font-semibold uppercase tracking-[0.18em]"
+                                    >
+                                      View item
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                              {fullP && onAddToCart && (
+                                <div className="border-t border-[#E9D6C6] bg-[#FBF5EE] p-3 flex gap-2">
+                                  <button
+                                    onClick={() => {
+                                      onAddToCart(fullP);
+                                      setMessages((prev) => [
+                                        ...prev,
+                                        {
+                                          role: 'assistant',
+                                          content: isPK ? `✅ ${p.name} cart mein add ho gaya!` : `✅ ${p.name} added to cart!`,
+                                          timestamp: Date.now(),
+                                        },
+                                      ]);
+                                    }}
+                                    className="flex-1 text-xs bg-[#1F2345] text-[#F7EFE8] px-3 py-2 rounded-2xl hover:bg-[#252a49] transition font-semibold"
+                                  >
+                                    🛒 {isPK ? 'Cart mein add karo' : 'Add to cart'}
+                                  </button>
+                                  <button
+                                    onClick={() => onOpenProduct(fullP)}
+                                    className="flex-1 text-xs bg-[#F2A33C] text-[#1F2345] px-3 py-2 rounded-2xl hover:bg-[#d6942f] transition font-semibold"
+                                  >
+                                    {isPK ? 'Details dekho' : 'View details'}
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-gray-800 line-clamp-2 group-hover:text-rose-600 transition">
-                              {p.name}
-                            </p>
-                            <p className="text-rose-600 font-black text-sm mt-0.5">
-                              Rs. {p.price.toLocaleString()}
-                            </p>
-                          </div>
-                          <svg
-                            className="w-4 h-4 text-gray-300 group-hover:text-rose-400 transition shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 5l7 7-7 7"
-                            />
-                          </svg>
-                        </button>
-                      ))}
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -406,18 +473,18 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
 
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-white border border-gray-100 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                <div className="bg-white border border-[#E9D6C6] rounded-3xl px-4 py-3 shadow-[0_12px_28px_rgba(47,35,31,0.08)]">
                   <div className="flex gap-1.5 items-center">
                     <span
-                      className="w-2 h-2 bg-rose-400 rounded-full animate-bounce"
+                      className="w-2 h-2 bg-[#F2A33C] rounded-full animate-bounce"
                       style={{ animationDelay: '0ms' }}
                     />
                     <span
-                      className="w-2 h-2 bg-rose-400 rounded-full animate-bounce"
+                      className="w-2 h-2 bg-[#F2A33C] rounded-full animate-bounce"
                       style={{ animationDelay: '150ms' }}
                     />
                     <span
-                      className="w-2 h-2 bg-rose-400 rounded-full animate-bounce"
+                      className="w-2 h-2 bg-[#F2A33C] rounded-full animate-bounce"
                       style={{ animationDelay: '300ms' }}
                     />
                   </div>
@@ -427,7 +494,7 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
 
             {interimVoice && voiceActive && (
               <div className="flex justify-end">
-                <div className="bg-rose-100 border border-rose-200 rounded-2xl rounded-br-sm px-4 py-2 text-xs text-rose-700 italic">
+                <div className="bg-[#FBF5EE] border border-[#E9D6C6] rounded-3xl px-4 py-2 text-xs text-[#7C6A58] italic">
                   🎤 {interimVoice}
                 </div>
               </div>
@@ -438,12 +505,12 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
 
           {/* Quick questions (only at start) */}
           {messages.length <= 1 && (
-            <div className="px-4 py-2 bg-white border-t border-gray-100 flex gap-2 overflow-x-auto scrollbar-hide shrink-0">
+            <div className="px-4 py-3 bg-[#FBF5EE] border-t border-[#E9D6C6] flex gap-2 overflow-x-auto scrollbar-hide shrink-0">
               {quickQuestions.map((q, i) => (
                 <button
                   key={i}
                   onClick={() => send(q)}
-                  className="shrink-0 text-xs bg-rose-50 text-rose-600 px-3 py-1.5 rounded-full font-medium hover:bg-rose-100 transition whitespace-nowrap"
+                  className="shrink-0 text-[11px] bg-[#1F2345] text-[#F7EFE8] px-3 py-2 rounded-full font-semibold hover:bg-[#252a49] transition whitespace-nowrap"
                 >
                   {q}
                 </button>
@@ -452,9 +519,9 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
           )}
 
           {/* Input */}
-          <div className="p-3 bg-white border-t border-gray-100 shrink-0 space-y-2">
+          <div className="p-3 bg-white border-t border-[#E9D6C6] shrink-0 space-y-2">
             {voiceActive && (
-              <div className="bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-xs text-rose-700">
+              <div className="bg-[#FBF5EE] border border-[#E9D6C6] rounded-lg px-3 py-2 text-xs text-[#7C6A58]">
                 🎤 Listening...
               </div>
             )}
@@ -466,15 +533,15 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
                 placeholder="Kuch bhi poochein..."
-                className="flex-1 border-2 border-gray-200 rounded-full px-4 py-2.5 text-sm focus:outline-none focus:border-rose-400 transition"
+                className="flex-1 border-2 border-[#E9D6C6] rounded-full px-4 py-3 text-sm bg-white text-[#312D2A] placeholder:text-[#A28F7D] focus:outline-none focus:border-[#F2A33C] transition"
               />
 
               {hasVoice && (
                 <button
                   onClick={voiceActive ? stopListening : startListening}
                   className={`${
-                    voiceActive ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'
-                  } text-white rounded-full w-10 h-10 flex items-center justify-center transition shrink-0`}
+                    voiceActive ? 'bg-[#D54B4C] hover:bg-[#b54344]' : 'bg-[#F2A33C] hover:bg-[#d6942f]'
+                  } text-[#1F2345] rounded-full w-10 h-10 flex items-center justify-center transition shrink-0`}
                   title={voiceActive ? 'Stop listening' : 'Start voice input'}
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -490,7 +557,7 @@ export default function AIChat({ products, onOpenProduct }: AIChatProps) {
               <button
                 onClick={() => send()}
                 disabled={!input.trim() || loading}
-                className="bg-rose-600 hover:bg-rose-700 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-full w-10 h-10 flex items-center justify-center transition shrink-0"
+                className="bg-[#1F2345] hover:bg-[#252a49] disabled:bg-gray-200 disabled:text-gray-400 text-[#F7EFE8] rounded-full w-10 h-10 flex items-center justify-center transition shrink-0"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
