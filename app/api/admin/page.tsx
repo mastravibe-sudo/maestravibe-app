@@ -4,7 +4,7 @@ import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 
 export default async function AdminPage() {
-  const session = getSession();
+  const session = await getSession();
   if (!session || session.email !== process.env.ADMIN_EMAIL) redirect('/login');
 
   const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
