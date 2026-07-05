@@ -37,13 +37,32 @@ import TrendingNowSection from '@/components/home/TrendingNowSection';
 import WhyChooseUsSection from '@/components/home/WhyChooseUsSection';
 import { ShieldIco, TruckIco } from '@/components/home/icons';
 
+// ── HomePageProps ─────────────────────────────────────────────────────────────
+// Matches what LayoutWrapper passes down:
+//   <ClientHome cartCount={cartCount} onCartCountChange={setCartCount}
+//               showCart={showCart} onCartClose={() => setShowCart(false)} />
+// All props are optional so this stays compatible with any other caller that
+// doesn't pass them. `cartCount` is accepted but intentionally unused inside
+// the component — it already computes its own local cart count from `cart`
+// (renamed below to `currentCartCount` to avoid shadowing this prop).
 interface HomePageProps {
-  onCartCountChange?: (count: number) => void;
+  cartCount?: number;
+  onCartCountChange?: React.Dispatch<React.SetStateAction<number>>;
   showCart?: boolean;
   onCartClose?: () => void;
 }
 
-export default function HomePage({ onCartCountChange, showCart: showCartProp = false, onCartClose }: HomePageProps) {
+export default function HomePage({
+  cartCount,
+  onCartCountChange,
+  showCart: showCartProp = false,
+  onCartClose,
+}: HomePageProps) {
+  // Accepted to satisfy HomePageProps / the LayoutWrapper call site, but not
+  // used internally — the component's own `currentCartCount` (derived from
+  // local cart state below) remains the source of truth, unchanged.
+  void cartCount;
+
   const { market } = useMarket();
   const marketCfg = MARKET_CONFIG[market] ?? MARKET_CONFIG['pk'];
   const isPK = market === 'pk';
@@ -102,7 +121,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data) setSiteSettings(prev => ({ ...prev, ...data })); })
+      .then(data => { if (data) setSiteSettings((prev: any) => ({ ...prev, ...data })); })
       .catch(() => {});
   }, []);
 
@@ -132,13 +151,13 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
 
   const slides: Slide[] = activeBanners.length > 0
     ? activeBanners.map(b => ({ id: b.id, image: b.image_url, fallback: '', title: b.title, sub: b.subtitle, tag: b.tag, buttonLabel: b.button_label || 'Shop Now', buttonLink: b.button_link || 'all' }))
-    : FALLBACK_SLIDES.map((s, i) => ({ id: `fallback-${i}`, image: s.image, fallback: s.fallback, title: s.title, sub: s.sub, tag: s.tag, buttonLabel: 'Shop Now', buttonLink: 'all' }));
+    : FALLBACK_SLIDES.map((s: { image: any; fallback: any; title: any; sub: any; tag: any; }, i: any) => ({ id: `fallback-${i}`, image: s.image, fallback: s.fallback, title: s.title, sub: s.sub, tag: s.tag, buttonLabel: 'Shop Now', buttonLink: 'all' }));
 
   const activeCategories = cmsCategories.filter(c => c.is_active).sort((a, b) => a.sort_order - b.sort_order);
 
   const categoriesForGrid = activeCategories.length > 0
     ? activeCategories.map(c => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }))
-    : FALLBACK_CATEGORIES.map(c => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }));
+    : FALLBACK_CATEGORIES.map((c: { label: any; value: any; image_url: any; emoji: any; }) => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }));
 
   const categoriesForFilter = [{ label: 'All', value: 'all', image: '', emoji: '' }, ...categoriesForGrid];
 
@@ -185,7 +204,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
   const checkoutItems = checkoutProduct ? [checkoutProduct] : cart;
   const orderTotal = checkoutItems.reduce((s, i) => s + i.price * (i.quantity || 1), 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-  const cartCount = cart.reduce((s, i) => s + i.quantity, 0);
+  const currentCartCount = cart.reduce((s, i) => s + i.quantity, 0);
   const featured = allProducts.slice(0, 8);
   const newArrivals = [...allProducts].reverse().slice(0, 8);
   const trendingNow = allProducts.length > 4
@@ -269,7 +288,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
           const data = await res.json();
           const addr = data.address;
-          setCustomerInfo(prev => ({
+          setCustomerInfo((prev: { address: any; }) => ({
             ...prev,
             city: addr.city || addr.town || addr.village || addr.state_district || '',
             area: addr.neighbourhood || addr.suburb || addr.road || '',
@@ -601,7 +620,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
         <CartDrawer
           cart={cart}
           market={market}
-          cartCount={cartCount}
+          cartCount={currentCartCount}
           cartTotal={cartTotal}
           onClose={() => { setShowCart(false); onCartClose?.(); }}
           onUpdateQuantity={(index, updater) => setCart(p => p.map((x, i) => i === index ? updater(x) : x))}
@@ -642,7 +661,7 @@ export default function HomePage({ onCartCountChange, showCart: showCartProp = f
       />
 
       <MobileNav
-        cartCount={cartCount}
+        cartCount={currentCartCount}
         onHome={() => { setView('home'); setViewProductPage(null); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         onShop={() => { setView('shop'); setActiveCategory('all'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
         onCart={() => setShowCart(true)}
