@@ -96,6 +96,12 @@ export interface CategoryItem {
   emoji: string;
 }
 
+// Alias kept for compatibility with components (e.g. CategoriesSection.tsx)
+// that import the older 'CategoryForGrid' name. Same shape as CategoryItem —
+// this fixes the missing-export build error without touching any component
+// or changing the actual data shape.
+export type CategoryForGrid = CategoryItem;
+
 export interface OccasionItem {
   label:    string;
   emoji:    string;
