@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getSession } from '@/lib/auth';
 
 export async function GET() {
-  const session = getSession();
+  const session = await getSession();
   if (!session || session.role !== 'reseller') {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
   }
