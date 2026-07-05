@@ -102,6 +102,20 @@ export interface CategoryItem {
 // or changing the actual data shape.
 export type CategoryForGrid = CategoryItem;
 
+// Matches the shape of each entry in MARKET_CONFIG (lib/home/constants.ts).
+// Added so components (e.g. CheckoutFlow.tsx) can import a proper type for
+// the `marketCfg` object instead of relying on inference from another file.
+export interface MarketConfigEntry {
+  currency:        string;
+  symbol:          string;
+  freeDeliveryMin: string;
+  phone:           string;
+  conversionRate:  number;
+  label:           string;
+  flag:            string;
+  codAvailable:    boolean;
+}
+
 export interface OccasionItem {
   label:    string;
   emoji:    string;
