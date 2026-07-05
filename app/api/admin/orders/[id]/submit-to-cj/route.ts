@@ -7,10 +7,10 @@ function getSupabase() {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const supabase = getSupabase();
-    const { data: order, error } = await supabase.from('orders').select('*').eq('id', params.id).single();
+    const { data: order, error } = await supabase.from('orders').select('*').eq('id', id).single();
     if (error || !order) return NextResponse.json({ message: 'Order not found' }, { status: 404 });
 
     // Har item ke liye CJ vid honi zaroori hai

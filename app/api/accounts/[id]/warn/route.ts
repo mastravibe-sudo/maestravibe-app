@@ -1,9 +1,13 @@
 // app/api/accounts/[id]/warn/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 function getSupabase() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 }
 
 async function sendWarningEmail(email: string, name: string, message: string) {
@@ -17,7 +21,9 @@ async function sendWarningEmail(email: string, name: string, message: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM ?? 'Maestra Vibe <noreply@maestravibe.online>',
+      from:
+        process.env.EMAIL_FROM ??
+        'Maestra Vibe <noreply@maestravibe.online>',
       to: [email],
       subject: 'Important Notice Regarding Your MaestraVibe Account',
       html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;">
@@ -27,7 +33,9 @@ async function sendWarningEmail(email: string, name: string, message: string) {
         <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:16px;margin:16px 0;color:#991b1b;">
           ${message}
         </div>
-        <p style="font-size:13px;color:#6b7280;">Please review your account activity. Repeated violations may result in account suspension.</p>
+        <p style="font-size:13px;color:#6b7280;">
+          Please review your account activity. Repeated violations may result in account suspension.
+        </p>
       </div>`,
     }),
   });
@@ -38,43 +46,86 @@ async function sendWarningEmail(email: string, name: string, message: string) {
   }
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params;
+
     const { message } = await req.json();
+
     if (!message || !message.trim()) {
-      return NextResponse.json({ message: 'Warning message is required' }, { status: 400 });
+      return NextResponse.json(
+        { message: 'Warning message is required' },
+        { status: 400 }
+      );
     }
 
     const supabase = getSupabase();
-    const { data: account } = await supabase.from('accounts').select('email, name').eq('id', params.id).single();
-    if (!account) return NextResponse.json({ message: 'Account not found' }, { status: 404 });
+
+    const { data: account } = await supabase
+      .from('accounts')
+      .select('email, name')
+      .eq('id', id)
+      .single();
+
+    if (!account) {
+      return NextResponse.json(
+        { message: 'Account not found' },
+        { status: 404 }
+      );
+    }
 
     const { error: insertError } = await supabase
       .from('account_warnings')
-      .insert([{ account_id: params.id, message }]);
-    if (insertError) return NextResponse.json({ message: insertError.message }, { status: 500 });
+      .insert([{ account_id: id, message }]);
+
+    if (insertError) {
+      return NextResponse.json(
+        { message: insertError.message },
+        { status: 500 }
+      );
+    }
 
     try {
       await sendWarningEmail(account.email, account.name, message);
     } catch (emailErr) {
       console.error('Warning email failed:', emailErr);
-      // Warning is saved even if email fails — don't block the response
     }
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {
-    return NextResponse.json({ message: err instanceof Error ? err.message : 'Failed to send warning' }, { status: 500 });
+    return NextResponse.json(
+      {
+        message:
+          err instanceof Error ? err.message : 'Failed to send warning',
+      },
+      { status: 500 }
+    );
   }
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
   const supabase = getSupabase();
+
   const { data, error } = await supabase
     .from('account_warnings')
     .select('*')
-    .eq('account_id', params.id)
+    .eq('account_id', id)
     .order('created_at', { ascending: false });
 
-  if (error) return NextResponse.json({ message: error.message }, { status: 500 });
+  if (error) {
+    return NextResponse.json(
+      { message: error.message },
+      { status: 500 }
+    );
+  }
+
   return NextResponse.json(data ?? []);
 }
