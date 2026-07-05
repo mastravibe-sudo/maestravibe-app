@@ -1,14 +1,19 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 export default function AccountPage() {
   const [role, setRole] = useState<'customer' | 'reseller'>('customer');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [code, setCode] = useState('');
   const [stage, setStage] = useState<'role' | 'email' | 'verify' | 'details' | 'done'>('role');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [bankConfirmed, setBankConfirmed] = useState(false);
   const [form, setForm] = useState({
     name: '',
     phone: '',
@@ -22,6 +27,19 @@ export default function AccountPage() {
   });
 
   const sendCode = async () => {
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (!termsAccepted) {
+      setError('Please accept the Terms & Policy to continue');
+      return;
+    }
+
     setLoading(true);
     setError('');
     try {
@@ -61,12 +79,20 @@ export default function AccountPage() {
 
   const submitAccount = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (role === 'reseller' && !bankConfirmed) {
+      setError('Please confirm your bank/account details are accurate before submitting');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
       const payload = {
         email,
+        password,
+        terms_accepted: termsAccepted,
         role,
         name: form.name,
         phone: form.phone,
@@ -79,7 +105,7 @@ export default function AccountPage() {
         bank_account_number: form.bank_account_number,
       };
 
-      const res = await fetch('/api/account/register', {
+      const res = await fetch('/api/create-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -144,6 +170,12 @@ export default function AccountPage() {
               >
                 Continue
               </button>
+              <p className="text-center text-sm text-gray-500">
+                Already have an account?{' '}
+                <Link href="/login" className="font-semibold text-violet-600 hover:underline">
+                  Login
+                </Link>
+              </p>
             </div>
           )}
 
@@ -159,6 +191,42 @@ export default function AccountPage() {
                   className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
                 />
               </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 6 characters"
+                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-gray-700">Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter your password"
+                  className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
+                />
+              </div>
+
+              <label className="flex items-start gap-2 text-sm text-gray-600">
+                <input
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
+                />
+                <span>
+                  I agree to the{' '}
+                  <a href="/policy" target="_blank" className="font-semibold text-violet-600 hover:underline">
+                    Terms & Policy
+                  </a>
+                </span>
+              </label>
+
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -170,7 +238,7 @@ export default function AccountPage() {
                 <button
                   type="button"
                   onClick={sendCode}
-                  disabled={loading || !email}
+                  disabled={loading || !email || !password || !confirmPassword || !termsAccepted}
                   className="flex-1 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
                 >
                   {loading ? 'Sending...' : 'Send Code'}
@@ -230,6 +298,7 @@ export default function AccountPage() {
                     required
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    placeholder="03XX-XXXXXXX"
                     className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
                   />
                 </div>
@@ -267,50 +336,72 @@ export default function AccountPage() {
               </div>
 
               {role === 'reseller' && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">Bank Type</label>
-                    <select
-                      required
-                      value={form.bank_type}
-                      onChange={(e) => setForm({ ...form, bank_type: e.target.value })}
-                      className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
-                    >
-                      <option value="">Select bank type</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="JazzCash">JazzCash</option>
-                      <option value="EasyPaisa">EasyPaisa</option>
-                      <option value="Cash">Cash</option>
-                    </select>
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">Bank Type</label>
+                      <select
+                        required
+                        value={form.bank_type}
+                        onChange={(e) => setForm({ ...form, bank_type: e.target.value })}
+                        className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
+                      >
+                        <option value="">Select bank type</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="JazzCash">JazzCash</option>
+                        <option value="EasyPaisa">EasyPaisa</option>
+                        <option value="Cash">Cash</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">Bank Name</label>
+                      <input
+                        required
+                        value={form.bank_name}
+                        onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+                        className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">Account Title</label>
+                      <input
+                        required
+                        value={form.bank_account_title}
+                        onChange={(e) => setForm({ ...form, bank_account_title: e.target.value })}
+                        className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-700">Account Number</label>
+                      <input
+                        required
+                        value={form.bank_account_number}
+                        onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })}
+                        placeholder="e.g. 03XXXXXXXXX or bank account number"
+                        className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">Bank Name</label>
-                    <input
-                      required
-                      value={form.bank_name}
-                      onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
-                      className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
-                    />
+
+                  <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 text-xs text-amber-800">
+                    <p className="font-semibold mb-1">⚠️ Important Notice</p>
+                    <p>
+                      Please double-check your bank/account details before submitting. MaestraVibe is not
+                      responsible for payments sent to incorrect, closed, or blocked accounts. All commission
+                      transfers are processed automatically based on the details you provide, and any loss
+                      due to inaccurate information will not be reimbursed.
+                    </p>
+                    <label className="flex items-start gap-2 mt-3">
+                      <input
+                        type="checkbox"
+                        checked={bankConfirmed}
+                        onChange={(e) => setBankConfirmed(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-amber-400 text-violet-600"
+                      />
+                      <span>I confirm that the bank/account details above are accurate and belong to me.</span>
+                    </label>
                   </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">Account Title</label>
-                    <input
-                      required
-                      value={form.bank_account_title}
-                      onChange={(e) => setForm({ ...form, bank_account_title: e.target.value })}
-                      className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-gray-700">Account Number</label>
-                    <input
-                      required
-                      value={form.bank_account_number}
-                      onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })}
-                      className="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-violet-500"
-                    />
-                  </div>
-                </div>
+                </>
               )}
 
               <div className="flex gap-3 pt-2">
@@ -323,7 +414,7 @@ export default function AccountPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || (role === 'reseller' && !bankConfirmed)}
                   className="flex-1 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-60"
                 >
                   {loading ? 'Creating...' : 'Create Account'}
@@ -341,20 +432,15 @@ export default function AccountPage() {
               </div>
               <h2 className="text-xl font-black text-gray-900">Account Ready</h2>
               <p className="mt-2 text-sm text-gray-600">
-                Your {role === 'reseller' ? 'reseller' : 'customer'} account request has been submitted successfully.
+                Your {role === 'reseller' ? 'reseller' : 'customer'} account has been created successfully.
+                {role === 'reseller' && ' It is pending admin approval before you can access the dashboard.'}
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setStage('role');
-                  setEmail('');
-                  setCode('');
-                  setForm({ name: '', phone: '', age: '', address: '', website: '', bank_type: '', bank_name: '', bank_account_title: '', bank_account_number: '' });
-                }}
-                className="mt-4 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-bold text-white"
+              <Link
+                href="/login"
+                className="mt-4 inline-block rounded-2xl bg-violet-600 px-6 py-3 text-sm font-bold text-white hover:bg-violet-700"
               >
-                Create Another Account
-              </button>
+                Go to Login
+              </Link>
             </div>
           )}
         </div>

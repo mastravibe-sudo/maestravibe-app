@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-const pendingCodes = new Map<string, { code: string; role: string; expiresAt: number }>();
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  return createClient(url, key);
+}
 
 function generateCode() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -8,9 +13,7 @@ function generateCode() {
 
 async function sendEmail(code: string, email: string, role: string) {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    throw new Error('RESEND_API_KEY is not configured. Add the API key to receive verification emails.');
-  }
+  if (!apiKey) throw new Error('RESEND_API_KEY is not configured.');
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -19,7 +22,7 @@ async function sendEmail(code: string, email: string, role: string) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM ?? 'Maestra Vibe <noreply@maestravibe.com>',
+      from: process.env.EMAIL_FROM ?? 'Maestra Vibe <noreply@maestravibe.online>',
       to: [email],
       subject: `Your MaestraVibe verification code`,
       html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;">
@@ -36,8 +39,6 @@ async function sendEmail(code: string, email: string, role: string) {
     const text = await res.text();
     throw new Error(text || 'Failed to send email');
   }
-
-  return { ok: true };
 }
 
 export async function POST(req: NextRequest) {
@@ -50,7 +51,18 @@ export async function POST(req: NextRequest) {
 
     const normalized = email.toLowerCase().trim();
     const code = generateCode();
-    pendingCodes.set(normalized, { code, role, expiresAt: Date.now() + 5 * 60 * 1000 });
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+
+    const supabase = getSupabase();
+
+    // Save (or overwrite existing) OTP for this email
+    const { error: dbError } = await supabase
+      .from('otp_codes')
+      .upsert({ email: normalized, code, role, expires_at: expiresAt });
+
+    if (dbError) {
+      return NextResponse.json({ success: false, message: dbError.message }, { status: 500 });
+    }
 
     try {
       await sendEmail(code, normalized, role);
@@ -59,10 +71,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: error.message || 'Unable to send verification code' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Verification code sent to your email',
-    });
+    return NextResponse.json({ success: true, message: 'Verification code sent to your email' });
   } catch {
     return NextResponse.json({ success: false, message: 'Invalid request' }, { status: 400 });
   }

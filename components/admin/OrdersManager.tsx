@@ -1,0 +1,231 @@
+// components/admin/OrdersManager.tsx
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import type { Order } from '@/lib/supabase';
+import { StatusBadge, SpinnerIcon, CloseIcon, TrashIcon, fmt } from './shared';
+
+const ORDER_STATUSES = ['new', 'pending', 'completed', 'delivered'] as const;
+type OrderStatus = typeof ORDER_STATUSES[number];
+type OrderFilter = 'all' | OrderStatus;
+
+function OrderDetailModal({ order, onClose, onSubmitCJ, cjSubmitting, cjResult }: {
+  order: Order; onClose: () => void; onSubmitCJ: (id: string) => void; cjSubmitting: boolean; cjResult: string;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto border border-gray-100">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-3xl">
+            <div>
+              <h2 className="text-lg font-black text-gray-900">Order Details</h2>
+              <p className="text-xs text-gray-400 mt-0.5">{fmt(order.created_at)}</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-500"><CloseIcon /></button>
+          </div>
+          <div className="px-6 py-5 space-y-5">
+            <div className="flex items-center gap-3 flex-wrap">
+              <StatusBadge status={order.status} />
+              {(order as any).cj_status && (order as any).cj_status !== 'not_submitted' && (
+                <StatusBadge status={(order as any).cj_status} />
+              )}
+              <span className="text-xs text-gray-400 ml-auto font-mono">#{order.id?.slice(0, 8)}</span>
+            </div>
+
+            {(order as any).reseller_id && (
+              <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-2 text-xs text-blue-700 font-semibold">
+                Reseller order — Profit: Rs. {Number((order as any).reseller_profit ?? 0).toLocaleString()}
+              </div>
+            )}
+
+            <div className="bg-violet-50 rounded-2xl p-4 space-y-2 border border-violet-100">
+              <p className="text-xs font-bold text-violet-600 uppercase tracking-wide mb-3">Customer Info</p>
+              {[
+                { label: 'Name', value: order.customer?.name },
+                { label: 'Phone', value: order.customer?.phone },
+                { label: 'Email', value: order.customer?.email },
+                { label: 'City', value: order.customer?.city },
+                { label: 'Address', value: order.customer?.address },
+              ].filter(f => f.value).map(f => (
+                <div key={f.label} className="flex gap-2 text-sm">
+                  <span className="text-gray-500 w-16 shrink-0 font-medium">{f.label}:</span>
+                  <span className="text-gray-800">{f.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Items ({order.items?.length})</p>
+              <div className="space-y-2">
+                {order.items?.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 border-2 border-gray-100 rounded-2xl p-3">
+                    {item.image && <img src={item.image} alt={item.name} className="w-14 h-14 rounded-xl object-cover" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{item.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {item.selectedColor && `Color: ${item.selectedColor}`}
+                        {item.selectedColor && item.selectedSize && ' · '}
+                        {item.selectedSize && `Size: ${item.selectedSize}`}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-bold text-violet-700">Rs. {(item.price * item.quantity).toLocaleString()}</p>
+                      <p className="text-xs text-gray-400">×{item.quantity}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center bg-green-50 border border-green-200 rounded-2xl px-5 py-4">
+              <span className="font-bold text-gray-700">Total Amount</span>
+              <span className="text-2xl font-black text-green-700">Rs. {Number(order.total).toLocaleString()}</span>
+            </div>
+
+            {/* CJ Submission */}
+            <div className="border-2 border-blue-100 bg-blue-50 rounded-2xl p-4">
+              <p className="text-sm font-bold text-blue-700 mb-2">CJ Dropshipping Fulfillment</p>
+              {(order as any).cj_order_id ? (
+                <p className="text-xs text-blue-600">Already submitted — CJ Order ID: {(order as any).cj_order_id}</p>
+              ) : (
+                <button onClick={() => onSubmitCJ(order.id)} disabled={cjSubmitting}
+                  className="w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-bold disabled:opacity-60">
+                  {cjSubmitting ? 'Submitting...' : 'Submit Order to CJ Dropshipping'}
+                </button>
+              )}
+              {cjResult && <p className="text-xs mt-2 text-blue-700">{cjResult}</p>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export default function OrdersManager() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
+  const [viewOrder, setViewOrder] = useState<Order | undefined>();
+  const [cjSubmitting, setCjSubmitting] = useState(false);
+  const [cjResult, setCjResult] = useState('');
+
+  const fetchOrders = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const res = await fetch('/api/orders');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? 'Error loading data');
+      setOrders(Array.isArray(data) ? data : []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load');
+    } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  const deleteItem = async (id: string) => {
+    if (!confirm('Are you sure?')) return;
+    try {
+      const res = await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.message ?? 'Delete failed'); }
+      fetchOrders();
+    } catch (err: unknown) { alert(err instanceof Error ? err.message : 'Delete failed'); }
+  };
+
+  const updateOrderStatus = async (id: string, status: OrderStatus) => {
+    try {
+      await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+      fetchOrders();
+    } catch { alert('Failed to update status'); }
+  };
+
+  const submitToCJ = async (orderId: string) => {
+    setCjSubmitting(true); setCjResult('');
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/submit-to-cj`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? 'Failed to submit to CJ');
+      setCjResult('Successfully submitted to CJ Dropshipping!');
+      fetchOrders();
+    } catch (err: unknown) {
+      setCjResult(err instanceof Error ? err.message : 'Failed to submit');
+    } finally { setCjSubmitting(false); }
+  };
+
+  const filteredOrders = orderFilter === 'all' ? orders : orders.filter(o => o.status === orderFilter);
+  const orderFilterCounts = ORDER_STATUSES.reduce((acc, s) => { acc[s] = orders.filter(o => o.status === s).length; return acc; }, {} as Record<string, number>);
+
+  return (
+    <div>
+      {viewOrder && (
+        <OrderDetailModal order={viewOrder} onClose={() => { setViewOrder(undefined); setCjResult(''); }}
+          onSubmitCJ={submitToCJ} cjSubmitting={cjSubmitting} cjResult={cjResult} />
+      )}
+
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-xl font-black text-gray-900">Orders</h1>
+      </div>
+
+      <div className="flex gap-2 flex-wrap mb-4">
+        {(['all', ...ORDER_STATUSES] as const).map(f => (
+          <button key={f} onClick={() => setOrderFilter(f)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold capitalize transition-all ${orderFilter === f ? 'bg-gray-900 text-white' : 'bg-white border-2 border-gray-200 text-gray-600'}`}>
+            {f === 'all' ? `All (${orders.length})` : `${f} (${orderFilterCounts[f] ?? 0})`}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-white rounded-2xl border-2 border-gray-100 overflow-hidden">
+        {loading && <div className="flex flex-col items-center justify-center py-20 text-gray-400"><SpinnerIcon /><p className="text-sm font-medium mt-3">Loading...</p></div>}
+        {error && <div className="p-5 text-red-600 bg-red-50 border-b border-red-100 text-sm font-medium">Error: {error}</div>}
+        {!loading && !error && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b-2 border-gray-100 sticky top-0 z-10">
+                <tr>
+                  {['Customer ID','Customer','Total','Reseller','CJ Status','Date','Status','Update','Actions'].map(h => (
+                    <th key={h} className="text-left px-3 py-3.5 text-gray-500 font-semibold text-xs uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filteredOrders.length === 0 ? (
+                  <tr><td colSpan={9} className="text-center py-16 text-gray-400">No orders</td></tr>
+                ) : filteredOrders.map(o => (
+                  <tr key={o.id} className="hover:bg-violet-50/30 transition-colors">
+                    <td className="px-3 py-3.5 font-mono text-gray-700 whitespace-nowrap">#{o.id?.slice(0, 8)}</td>
+                    <td className="px-3 py-3.5 font-semibold text-gray-800 whitespace-nowrap">{o.customer?.name}</td>
+                    <td className="px-3 py-3.5 font-bold text-violet-700 whitespace-nowrap">Rs. {Number(o.total).toLocaleString()}</td>
+                    <td className="px-3 py-3.5">
+                      {(o as any).reseller_id
+                        ? <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-semibold">Rs. {Number((o as any).reseller_profit ?? 0).toLocaleString()}</span>
+                        : <span className="text-xs text-gray-300">Direct</span>}
+                    </td>
+                    <td className="px-3 py-3.5"><StatusBadge status={(o as any).cj_status ?? 'not_submitted'} /></td>
+                    <td className="px-3 py-3.5 text-gray-400 text-xs whitespace-nowrap">{fmt(o.created_at)}</td>
+                    <td className="px-3 py-3.5"><StatusBadge status={o.status} /></td>
+                    <td className="px-3 py-3.5">
+                      <select value={o.status} onChange={e => updateOrderStatus(o.id, e.target.value as OrderStatus)}
+                        className="text-xs border-2 border-gray-200 rounded-xl px-2 py-1.5 text-gray-800 bg-white font-medium">
+                        {ORDER_STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-3 py-3.5">
+                      <div className="flex gap-1.5">
+                        <button onClick={() => setViewOrder(o)} className="text-blue-600 text-xs font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition whitespace-nowrap">Details</button>
+                        <button onClick={() => deleteItem(o.id)} className="text-red-500 text-xs font-semibold bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1"><TrashIcon /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

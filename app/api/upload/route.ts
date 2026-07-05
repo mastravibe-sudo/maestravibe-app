@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+function getR2Client() {
+  const accountId = process.env.R2_ACCOUNT_ID;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
 
-  if (!url) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL is missing');
-  }
+  if (!accountId) throw new Error('R2_ACCOUNT_ID is missing');
+  if (!accessKeyId) throw new Error('R2_ACCESS_KEY_ID is missing');
+  if (!secretAccessKey) throw new Error('R2_SECRET_ACCESS_KEY is missing');
 
-  if (!key) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY is missing');
-  }
-
-  return createClient(url, key);
+  return new S3Client({
+    region: 'auto',
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: { accessKeyId, secretAccessKey },
+  });
 }
 
 function sanitizeFileName(fileName: string): string {
@@ -34,47 +35,36 @@ function sanitizeFileName(fileName: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = getSupabase();
+    const r2 = getR2Client();
+    const bucketName = process.env.R2_BUCKET_NAME;
+    const publicUrl = process.env.R2_PUBLIC_URL;
 
-    const rawFileName =
-      req.headers.get('x-file-name') || `image_${Date.now()}.jpg`;
+    if (!bucketName) throw new Error('R2_BUCKET_NAME is missing');
+    if (!publicUrl) throw new Error('R2_PUBLIC_URL is missing');
 
-    const fileType =
-      req.headers.get('x-file-type') || 'image/jpeg';
+    const rawFileName = req.headers.get('x-file-name') || `image_${Date.now()}.jpg`;
+    const fileType = req.headers.get('x-file-type') || 'image/jpeg';
 
     const cleanName = sanitizeFileName(rawFileName);
-    const uniqueName = `${Date.now()}_${cleanName}`;
+    const uniqueName = `images/${Date.now()}_${cleanName}`;
 
     const arrayBuffer = await req.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    const { error } = await supabase.storage
-      .from('products')
-      .upload(`images/${uniqueName}`, buffer, {
-        contentType: fileType,
-        cacheControl: '3600',
-        upsert: true,
-      });
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: bucketName,
+        Key: uniqueName,
+        Body: buffer,
+        ContentType: fileType,
+      })
+    );
 
-    if (error) {
-      console.error('Supabase Upload Error:', error);
-
-      return NextResponse.json(
-        {
-          success: false,
-          message: error.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('products')
-      .getPublicUrl(`images/${uniqueName}`);
+    const url = `${publicUrl}/${uniqueName}`;
 
     return NextResponse.json({
       success: true,
-      url: urlData.publicUrl,
+      url,
     });
   } catch (err) {
     console.error('Upload Error:', err);
@@ -82,10 +72,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        message:
-          err instanceof Error
-            ? err.message
-            : 'Upload failed',
+        message: err instanceof Error ? err.message : 'Upload failed',
       },
       { status: 500 }
     );

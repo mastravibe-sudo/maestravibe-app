@@ -146,6 +146,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
   const [catOpen,    setCatOpen]    = useState(false);
   const [scrolled,   setScrolled]   = useState(false);
   const [search,     setSearch]     = useState('');
+  const [accountHref, setAccountHref] = useState('/login');
   const router   = useRouter();
   const pathname = usePathname();
   const catRef   = useRef<HTMLDivElement>(null);
@@ -162,6 +163,23 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/session', { cache: 'no-store' })
+      .then(async (res) => {
+        if (!mounted) return;
+        if (res.ok) {
+          setAccountHref('/dashboard');
+        } else {
+          setAccountHref('/login');
+        }
+      })
+      .catch(() => {
+        if (mounted) setAccountHref('/login');
+      });
+    return () => { mounted = false; };
   }, []);
 
   // Close mobile menu on route change
@@ -185,7 +203,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
     { href: '/about',    label: 'About'    },
     { href: '/services', label: 'Services' },
     { href: '/policy',   label: 'Policy'   },
-    { href: '/account',  label: 'Account'  },
+    { href: accountHref, label: 'Account'  },
   ];
 
   // Market-aware announcement bar

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-const pendingCodes = new Map<string, { code: string; role: string; expiresAt: number }>();
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  return createClient(url, key);
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,10 +16,20 @@ export async function POST(req: NextRequest) {
     }
 
     const normalized = email.toLowerCase().trim();
-    const record = pendingCodes.get(normalized);
+    const supabase = getSupabase();
 
-    if (!record || Date.now() > record.expiresAt) {
-      pendingCodes.delete(normalized);
+    const { data: record, error } = await supabase
+      .from('otp_codes')
+      .select('*')
+      .eq('email', normalized)
+      .single();
+
+    if (error || !record) {
+      return NextResponse.json({ success: false, message: 'Code expired. Please request a new one.' }, { status: 401 });
+    }
+
+    if (new Date() > new Date(record.expires_at)) {
+      await supabase.from('otp_codes').delete().eq('email', normalized);
       return NextResponse.json({ success: false, message: 'Code expired. Please request a new one.' }, { status: 401 });
     }
 
@@ -22,7 +37,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Incorrect verification code' }, { status: 401 });
     }
 
-    pendingCodes.delete(normalized);
+    await supabase.from('otp_codes').delete().eq('email', normalized);
 
     return NextResponse.json({ success: true, role: record.role, message: 'Email verified successfully' });
   } catch {
