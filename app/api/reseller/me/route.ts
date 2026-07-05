@@ -7,7 +7,7 @@ function getSupabase() {
 }
 
 export async function GET() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
   const supabase = getSupabase();
@@ -22,7 +22,7 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
 
   try {
