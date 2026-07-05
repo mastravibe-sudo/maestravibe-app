@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getSession } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   // Aap yahan check kar sakte ho ke sirf admin email hi ye action kar sake
   if (!session || session.email !== process.env.ADMIN_EMAIL) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 403 });
