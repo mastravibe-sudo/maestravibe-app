@@ -121,7 +121,7 @@ export default function HomePage({
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data) setSiteSettings((prev: any) => ({ ...prev, ...data })); })
+      .then(data => { if (data) setSiteSettings(prev => ({ ...prev, ...data })); })
       .catch(() => {});
   }, []);
 
@@ -151,13 +151,13 @@ export default function HomePage({
 
   const slides: Slide[] = activeBanners.length > 0
     ? activeBanners.map(b => ({ id: b.id, image: b.image_url, fallback: '', title: b.title, sub: b.subtitle, tag: b.tag, buttonLabel: b.button_label || 'Shop Now', buttonLink: b.button_link || 'all' }))
-    : FALLBACK_SLIDES.map((s: { image: any; fallback: any; title: any; sub: any; tag: any; }, i: any) => ({ id: `fallback-${i}`, image: s.image, fallback: s.fallback, title: s.title, sub: s.sub, tag: s.tag, buttonLabel: 'Shop Now', buttonLink: 'all' }));
+    : FALLBACK_SLIDES.map((s, i) => ({ id: `fallback-${i}`, image: s.image, fallback: s.fallback, title: s.title, sub: s.sub, tag: s.tag, buttonLabel: 'Shop Now', buttonLink: 'all' }));
 
   const activeCategories = cmsCategories.filter(c => c.is_active).sort((a, b) => a.sort_order - b.sort_order);
 
   const categoriesForGrid = activeCategories.length > 0
     ? activeCategories.map(c => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }))
-    : FALLBACK_CATEGORIES.map((c: { label: any; value: any; image_url: any; emoji: any; }) => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }));
+    : FALLBACK_CATEGORIES.map(c => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }));
 
   const categoriesForFilter = [{ label: 'All', value: 'all', image: '', emoji: '' }, ...categoriesForGrid];
 
@@ -288,7 +288,7 @@ export default function HomePage({
           const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
           const data = await res.json();
           const addr = data.address;
-          setCustomerInfo((prev: { address: any; }) => ({
+          setCustomerInfo(prev => ({
             ...prev,
             city: addr.city || addr.town || addr.village || addr.state_district || '',
             area: addr.neighbourhood || addr.suburb || addr.road || '',
