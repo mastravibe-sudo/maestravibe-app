@@ -1,25 +1,59 @@
 // app/api/admin/orders/[id]/submit-to-cj/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createCJOrder } from '@/lib/cj';
 
 function getSupabase() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 }
 
-export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const supabase = getSupabase();
-    const { data: order, error } = await supabase.from('orders').select('*').eq('id', id).single();
-    if (error || !order) return NextResponse.json({ message: 'Order not found' }, { status: 404 });
+    // ✅ Next.js 15 dynamic params
+    const { id } = await params;
 
-    // Har item ke liye CJ vid honi zaroori hai
+    const supabase = getSupabase();
+
+    // Get order
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !order) {
+      return NextResponse.json(
+        { message: 'Order not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check every product has a CJ product ID
     const products = [];
+
     for (const item of order.items) {
-      const { data: product } = await supabase.from('products').select('cj_vid').eq('id', item.productId).single();
-      if (!product?.cj_vid) {
-        return NextResponse.json({ message: `Product "${item.name}" has no CJ product linked (missing cj_vid)` }, { status: 400 });
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('cj_vid')
+        .eq('id', item.productId)
+        .single();
+
+      if (productError || !product?.cj_vid) {
+        return NextResponse.json(
+          {
+            message: `Product "${item.name}" has no CJ product linked (missing cj_vid).`,
+          },
+          { status: 400 }
+        );
       }
+
       products.push({
         vid: product.cj_vid,
         quantity: item.quantity,
@@ -27,23 +61,48 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       });
     }
 
+    // Submit order to CJ
     const cjResult = await createCJOrder({
       orderNumber: order.id,
       customerName: order.customer.name,
       phone: order.customer.phone,
       address: order.customer.address,
       city: order.customer.city || '',
-      countryCode: 'PK', // ya order.customer.country agar wo field hai
+      countryCode: order.customer.countryCode || 'PK',
       products,
     });
 
-    await supabase.from('orders').update({
-      cj_order_id: cjResult.orderId || cjResult.orderCode,
-      cj_status: 'submitted',
-    }).eq('id', order.id);
+    // Save CJ order info
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({
+        cj_order_id: cjResult.orderId || cjResult.orderCode,
+        cj_status: 'submitted',
+      })
+      .eq('id', order.id);
 
-    return NextResponse.json({ success: true, cjOrder: cjResult });
+    if (updateError) {
+      return NextResponse.json(
+        { message: updateError.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      cjOrder: cjResult,
+    });
   } catch (err: unknown) {
-    return NextResponse.json({ message: err instanceof Error ? err.message : 'Failed to submit to CJ' }, { status: 500 });
+    console.error(err);
+
+    return NextResponse.json(
+      {
+        message:
+          err instanceof Error
+            ? err.message
+            : 'Failed to submit order to CJ',
+      },
+      { status: 500 }
+    );
   }
 }
