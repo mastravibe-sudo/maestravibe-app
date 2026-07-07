@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import HomePage from '@/components/Homepage';
+import HomePage from '@/components/ClientHome';
 
 export default function HomePageWithSearch() {
   return (

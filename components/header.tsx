@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
@@ -29,6 +29,16 @@ const CATEGORIES = [
   { name: 'Books',       value: 'books'        },
   { name: 'Sale',        value: 'sale'         },
 ];
+
+// Shape returned by /api/search — adjust to match your actual product schema
+interface SearchSuggestion {
+  id: string;
+  name: string;
+  slug: string;
+  image?: string;
+  price?: number;
+  category?: string;
+}
 
 interface Props {
   cartCount?: number;
@@ -70,6 +80,21 @@ function CloseIcon() {
     </svg>
   );
 }
+function XIcon() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+function SpinnerIcon() {
+  return (
+    <svg className="w-4 h-4 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
+}
 function WhatsAppIcon() {
   return (
     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -106,7 +131,7 @@ function MarketSwitcher() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2 border-gray-200 hover:border-violet-400 bg-white text-sm font-semibold transition-all"
+        className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2 border-gray-200 hover:border-purple-400 bg-white text-sm font-semibold transition-all"
         title="Switch market"
       >
         <span className="text-base">{current.flag}</span>
@@ -122,11 +147,10 @@ function MarketSwitcher() {
               onClick={() => {
                 setMarket(opt.value);
                 setOpen(false);
-                // Allow context to update then reload
                 setTimeout(() => window.location.reload(), 50);
               }}
-              className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-violet-50 hover:text-violet-700 transition-colors ${
-                market === opt.value ? 'text-violet-600 font-semibold bg-violet-50' : 'text-gray-700'
+              className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-purple-50 hover:text-purple-700 transition-colors ${
+                market === opt.value ? 'text-purple-700 font-semibold bg-purple-50' : 'text-gray-700'
               }`}
             >
               <span className="text-base">{opt.flag}</span>
@@ -140,16 +164,264 @@ function MarketSwitcher() {
   );
 }
 
+// ── Shared Search Bar (used for both desktop + mobile) ─────────
+// Handles: debounced live suggestions, keyboard navigation, clear button, loading state.
+function SearchBar({
+  variant,
+  categories,
+  onNavigateSearch,
+}: {
+  variant: 'desktop' | 'mobile';
+  categories: typeof CATEGORIES;
+  onNavigateSearch: (query: string) => void;
+}) {
+  const router = useRouter();
+  const [search, setSearch] = useState('');
+  const [catOpen, setCatOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  const catRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (catRef.current && !catRef.current.contains(e.target as Node)) setCatOpen(false);
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setShowSuggestions(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Debounced fetch of live suggestions
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    const query = search.trim();
+    if (query.length < 2) {
+      setSuggestions([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    debounceRef.current = setTimeout(async () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      try {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSuggestions(Array.isArray(data.results) ? data.results.slice(0, 6) : []);
+          setShowSuggestions(true);
+          setActiveIndex(-1);
+        }
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') {
+          setSuggestions([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }, 300); // 300ms debounce — feels instant without hammering the API on every keystroke
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search]);
+
+  const submitSearch = useCallback(
+    (value: string) => {
+      const trimmed = value.trim();
+      if (!trimmed) return;
+      setShowSuggestions(false);
+      onNavigateSearch(trimmed);
+    },
+    [onNavigateSearch]
+  );
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (activeIndex >= 0 && suggestions[activeIndex]) {
+      router.push(`/?openProduct=${suggestions[activeIndex].id}`);
+      return;
+    }
+    submitSearch(search);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setActiveIndex(-1);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearch('');
+    setSuggestions([]);
+    setShowSuggestions(false);
+  };
+
+  const inputId = `site-search-${variant}`;
+  const listboxId = `${inputId}-listbox`;
+
+  return (
+    <div ref={boxRef} className="relative w-full">
+      <form
+        onSubmit={handleSubmit}
+        role="search"
+        className="flex w-full rounded-xl overflow-hidden border-2 border-gray-200 focus-within:border-purple-500 transition-colors"
+      >
+        {variant === 'desktop' && (
+          <div className="relative" ref={catRef}>
+            <button
+              type="button"
+              onClick={() => setCatOpen(!catOpen)}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 transition border-r border-gray-200 whitespace-nowrap"
+            >
+              Categories <ChevronDown open={catOpen} />
+            </button>
+            {catOpen && (
+              <div className="absolute top-full left-0 mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-72 overflow-y-auto">
+                {categories.map((c) => (
+                  <Link
+                    key={c.value}
+                    href={c.value === 'all' ? '/' : `/?category=${c.value}`}
+                    onClick={() => setCatOpen(false)}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition"
+                  >
+                    {c.name}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="relative flex-1">
+          <input
+            id={inputId}
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => search.trim().length >= 2 && setShowSuggestions(true)}
+            placeholder="Search products, brands, categories..."
+            className="w-full pl-4 pr-9 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none bg-white"
+            role="combobox"
+            aria-expanded={showSuggestions}
+            aria-controls={listboxId}
+            aria-autocomplete="list"
+            autoComplete="off"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={clearSearch}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+            >
+              <XIcon />
+            </button>
+          )}
+        </div>
+
+        <button
+          type="submit"
+          aria-label="Search"
+          className="px-4 bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white transition-all"
+        >
+          <SearchIcon />
+        </button>
+      </form>
+
+      {/* Live suggestions dropdown */}
+      {showSuggestions && search.trim().length >= 2 && (
+        <div
+          id={listboxId}
+          role="listbox"
+          className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-96 overflow-y-auto"
+        >
+          {loading && (
+            <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-500">
+              <SpinnerIcon /> Searching...
+            </div>
+          )}
+
+          {!loading && suggestions.length === 0 && (
+            <div className="px-4 py-3 text-sm text-gray-500">
+              No products found for "{search.trim()}"
+            </div>
+          )}
+
+          {!loading &&
+            suggestions.map((item, idx) => (
+              <Link
+                key={item.id}
+                href={`/?openProduct=${item.id}`}
+                role="option"
+                aria-selected={activeIndex === idx}
+                onMouseEnter={() => setActiveIndex(idx)}
+                className={`flex items-center gap-3 px-4 py-2.5 transition ${
+                  activeIndex === idx ? 'bg-purple-50' : 'hover:bg-gray-50'
+                }`}
+              >
+                {item.image ? (
+                  <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+                    <Image src={item.image} alt={item.name} fill className="object-cover" sizes="40px" />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 rounded-lg bg-gray-100 shrink-0" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                  {item.category && <p className="text-xs text-gray-400 capitalize">{item.category}</p>}
+                </div>
+                {typeof item.price === 'number' && (
+                  <span className="text-sm font-semibold text-purple-700 shrink-0">
+                    {item.price.toLocaleString()}
+                  </span>
+                )}
+              </Link>
+            ))}
+
+          {!loading && suggestions.length > 0 && (
+            <button
+              type="button"
+              onClick={() => submitSearch(search)}
+              className="w-full text-left px-4 py-2.5 text-sm font-medium text-purple-700 hover:bg-purple-50 border-t border-gray-100 transition"
+            >
+              See all results for "{search.trim()}"
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Header({ cartCount = 0, onCartClick }: Props) {
   const { market, config } = useMarket();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [catOpen,    setCatOpen]    = useState(false);
-  const [scrolled,   setScrolled]   = useState(false);
-  const [search,     setSearch]     = useState('');
+  const [scrolled, setScrolled] = useState(false);
   const [accountHref, setAccountHref] = useState('/login');
-  const router   = useRouter();
+  const router = useRouter();
   const pathname = usePathname();
-  const catRef   = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -158,55 +430,52 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
   }, []);
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (catRef.current && !catRef.current.contains(e.target as Node)) setCatOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  useEffect(() => {
     let mounted = true;
     fetch('/api/session', { cache: 'no-store' })
       .then(async (res) => {
         if (!mounted) return;
-        if (res.ok) {
-          setAccountHref('/dashboard');
-        } else {
-          setAccountHref('/login');
-        }
+        setAccountHref(res.ok ? '/dashboard' : '/login');
       })
       .catch(() => {
         if (mounted) setAccountHref('/login');
       });
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // Close mobile menu on route change
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (search.trim()) router.push(`/?search=${encodeURIComponent(search.trim())}`);
+  const handleNavigateSearch = (query: string) => {
+    router.push(`/?search=${encodeURIComponent(query)}`);
   };
 
   const handleCategory = (value: string) => {
     router.push(value === 'all' ? '/' : `/?category=${value}`);
-    setCatOpen(false);
     setMobileOpen(false);
   };
 
+  // ✅ NEW: Logo click — poori site "/" par hi SPA jaisa chalti hai
+  // (ClientHome apna view state khud manage karta hai: home / shop /
+  // product page). Agar user pehle se "/" par hai, to <Link href="/">
+  // akela URL change nahi karta kyunke route wahi rehta hai — is liye
+  // ek custom event fire karte hain jise ClientHome sunta hai aur turant
+  // apna view "home" par reset kar deta hai, chahe URL badle ya na badle.
+  const handleLogoClick = (e: React.MouseEvent) => {
+    window.dispatchEvent(new Event('mv:reset-home'));
+    if (pathname === '/') e.preventDefault();
+  };
+
   const navLinks = [
-    { href: '/',         label: 'Shop'     },
-    { href: '/about',    label: 'About'    },
+    { href: '/', label: 'Shop' },
+    { href: '/about', label: 'About' },
     { href: '/services', label: 'Services' },
-    { href: '/policy',   label: 'Policy'   },
-    { href: accountHref, label: 'Account'  },
+    { href: '/policy', label: 'Policy' },
+    { href: accountHref, label: 'Account' },
   ];
 
-  // Market-aware announcement bar
   const announcementMap: Record<string, string> = {
     pk: `🇵🇰 Free delivery above Rs. 2,000 · Cash on Delivery · ${config?.phone ?? ''}`,
     us: `🇺🇸 Free shipping above $50 · Secure checkout · ${config?.phone ?? ''}`,
@@ -216,92 +485,70 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
   const announcementText = announcementMap[market] ?? announcementMap['pk'];
 
   return (
-    <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-      scrolled ? 'bg-white/95 backdrop-blur-md shadow-md' : 'bg-white border-b border-gray-100'
-    }`}>
-      {/* Announcement bar */}
-      <div className="bg-gradient-to-r from-violet-700 via-fuchsia-600 to-violet-700 text-white text-xs py-2 text-center tracking-wide font-medium">
+    <header
+      className={`sticky top-0 z-50 w-full transition-all duration-300 ${
+        scrolled ? 'bg-white/95 backdrop-blur-md shadow-md' : 'bg-white border-b border-gray-100'
+      }`}
+    >
+      {/* Space-themed announcement bar — deep indigo → purple → indigo, matches the logo's badge background */}
+      <div className="bg-gradient-to-r from-indigo-950 via-purple-800 to-indigo-950 text-white text-xs py-2 text-center tracking-wide font-medium">
         {announcementText}
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center gap-4">
-
-          {/* ── Logo ── */}
-          {/* Replace /images/logo.png with your actual logo path */}
-          <Link href="/" className="shrink-0 flex items-center gap-2">
-            {/* LOGO IMAGE — set your image path below */}
-            <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center shadow-md shadow-violet-200">
-              {/* Uncomment next line and remove the fallback span once you have a logo */}
-              {/* <Image src="/images/logo.png" alt="MaestraVibe" fill className="object-contain" priority /> */}
-              <span className="text-white font-black text-lg">M</span>
+          <Link href="/" className="shrink-0 flex items-center" onClick={handleLogoClick}>
+            {/* Logo — place the provided logo file at public/image1.png */}
+            <div className="relative h-12 w-[150px] sm:h-14 sm:w-[180px]">
+              <Image
+                src="/image/image1.png"
+                alt="Maestra Vibe"
+                fill
+                priority
+                className="object-contain object-left"
+                sizes="180px"
+              />
             </div>
-            <span className="text-2xl font-black tracking-tighter text-gray-900">
-              MAESTRA<span className="bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">VIBE</span>
-            </span>
           </Link>
 
           {/* Search — desktop */}
-          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-2xl mx-4">
-            <div className="flex w-full rounded-xl overflow-hidden border-2 border-gray-200 focus-within:border-violet-500 transition-colors">
-              <div className="relative" ref={catRef}>
-                <button
-                  type="button"
-                  onClick={() => setCatOpen(!catOpen)}
-                  className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-50 text-sm font-medium text-gray-700 hover:bg-gray-100 transition border-r border-gray-200 whitespace-nowrap"
-                >
-                  Categories <ChevronDown open={catOpen} />
-                </button>
-                {catOpen && (
-                  <div className="absolute top-full left-0 mt-1 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50 max-h-72 overflow-y-auto">
-                    {CATEGORIES.map(c => (
-                      <button key={c.value} onClick={() => handleCategory(c.value)}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition">
-                        {c.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <input
-                type="text" value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search products, brands, categories..."
-                className="flex-1 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none bg-white"
-              />
-              <button type="submit" className="px-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white transition-all">
-                <SearchIcon />
-              </button>
-            </div>
-          </form>
+          <div className="hidden md:flex flex-1 max-w-2xl mx-4">
+            <SearchBar variant="desktop" categories={CATEGORIES} onNavigateSearch={handleNavigateSearch} />
+          </div>
 
-          {/* Right actions */}
           <div className="flex items-center gap-2 ml-auto md:ml-0">
             <nav className="hidden md:flex items-center gap-1">
-              {navLinks.map(l => (
-                <Link key={l.href} href={l.href}
+              {navLinks.map((l) => (
+                <Link
+                  key={l.href}
+                  href={l.href}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                    pathname === l.href ? 'text-violet-600 bg-violet-50' : 'text-gray-600 hover:text-violet-600 hover:bg-gray-50'
-                  }`}>
+                    pathname === l.href ? 'text-purple-700 bg-purple-50' : 'text-gray-600 hover:text-purple-700 hover:bg-gray-50'
+                  }`}
+                >
                   {l.label}
                 </Link>
               ))}
             </nav>
 
-            {/* Market Switcher */}
             <MarketSwitcher />
 
-            {/* WhatsApp — PK only */}
             {market === 'pk' && (
-              <a href={`https://wa.me/${config?.whatsapp ?? ''}`} target="_blank" rel="noreferrer"
+              <a
+                href={`https://wa.me/${config?.whatsapp ?? ''}`}
+                target="_blank"
+                rel="noreferrer"
                 className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition"
-                title="WhatsApp">
+                title="WhatsApp"
+              >
                 <WhatsAppIcon />
               </a>
             )}
 
-            {/* Cart */}
-            <button onClick={onCartClick}
-              className="relative flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white px-4 py-2.5 rounded-xl transition-all font-medium text-sm shadow-md shadow-violet-200 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
+            <button
+              onClick={onCartClick}
+              className="relative flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white px-4 py-2.5 rounded-xl transition-all font-medium text-sm shadow-md shadow-purple-200 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
+            >
               <CartIcon />
               <span className="hidden sm:inline">Cart</span>
               {cartCount > 0 && (
@@ -311,32 +558,30 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
               )}
             </button>
 
-            {/* Mobile menu toggle */}
-            <button onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+            <button
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+            >
               {mobileOpen ? <CloseIcon /> : <MenuIcon />}
             </button>
           </div>
         </div>
 
-        {/* Mobile search */}
-        <form onSubmit={handleSearch} className="md:hidden mt-3 flex rounded-xl overflow-hidden border-2 border-gray-200 focus-within:border-violet-500 transition-colors">
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search products..."
-            className="flex-1 px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none" />
-          <button type="submit" className="px-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white hover:from-violet-700 hover:to-fuchsia-700 transition-all">
-            <SearchIcon />
-          </button>
-        </form>
+        {/* Search — mobile */}
+        <div className="md:hidden mt-3">
+          <SearchBar variant="mobile" categories={CATEGORIES} onNavigateSearch={handleNavigateSearch} />
+        </div>
       </div>
 
-      {/* Category strip — swipeable on mobile */}
       <div className="border-t border-gray-100 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex gap-1.5 overflow-x-auto py-2 scrollbar-hide snap-x snap-mandatory scroll-px-4 -mx-4 px-4">
-            {CATEGORIES.map(c => (
-              <button key={c.value} onClick={() => handleCategory(c.value)}
-                className="flex-shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-semibold text-gray-600 hover:bg-violet-100 hover:text-violet-700 transition whitespace-nowrap active:scale-95">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.value}
+                onClick={() => handleCategory(c.value)}
+                className="flex-shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-semibold text-gray-600 hover:bg-purple-100 hover:text-purple-700 transition whitespace-nowrap active:scale-95"
+              >
                 {c.name}
               </button>
             ))}
@@ -344,12 +589,15 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
         </div>
       </div>
 
-      {/* Mobile menu */}
       {mobileOpen && (
         <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-1">
-          {navLinks.map(l => (
-            <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)}
-              className="block px-4 py-3 rounded-xl text-gray-700 hover:bg-violet-50 hover:text-violet-600 font-medium transition">
+          {navLinks.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={() => setMobileOpen(false)}
+              className="block px-4 py-3 rounded-xl text-gray-700 hover:bg-purple-50 hover:text-purple-700 font-medium transition"
+            >
               {l.label}
             </Link>
           ))}
@@ -359,9 +607,12 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
           <div className="pt-2 border-t border-gray-100 mt-2">
             <p className="text-xs text-gray-400 px-4 mb-2 font-semibold uppercase tracking-wide">Categories</p>
             <div className="grid grid-cols-3 gap-1">
-              {CATEGORIES.map(c => (
-                <button key={c.value} onClick={() => handleCategory(c.value)}
-                  className="text-left px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-violet-50 hover:text-violet-600 transition">
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c.value}
+                  onClick={() => handleCategory(c.value)}
+                  className="text-left px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700 transition"
+                >
                   {c.name}
                 </button>
               ))}

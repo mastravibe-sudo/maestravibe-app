@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation'; // ✅ NEW
 import { useMarket } from '@/lib/market-context';
 
 import AIChat from '@/components/AIChat';
@@ -38,13 +39,6 @@ import WhyChooseUsSection from '@/components/home/WhyChooseUsSection';
 import { ShieldIco, TruckIco } from '@/components/home/icons';
 
 // ── HomePageProps ─────────────────────────────────────────────────────────────
-// Matches what LayoutWrapper passes down:
-//   <ClientHome cartCount={cartCount} onCartCountChange={setCartCount}
-//               showCart={showCart} onCartClose={() => setShowCart(false)} />
-// All props are optional so this stays compatible with any other caller that
-// doesn't pass them. `cartCount` is accepted but intentionally unused inside
-// the component — it already computes its own local cart count from `cart`
-// (renamed below to `currentCartCount` to avoid shadowing this prop).
 interface HomePageProps {
   cartCount?: number;
   onCartCountChange?: React.Dispatch<React.SetStateAction<number>>;
@@ -58,14 +52,14 @@ export default function HomePage({
   showCart: showCartProp = false,
   onCartClose,
 }: HomePageProps) {
-  // Accepted to satisfy HomePageProps / the LayoutWrapper call site, but not
-  // used internally — the component's own `currentCartCount` (derived from
-  // local cart state below) remains the source of truth, unchanged.
   void cartCount;
 
   const { market } = useMarket();
   const marketCfg = MARKET_CONFIG[market] ?? MARKET_CONFIG['pk'];
   const isPK = market === 'pk';
+
+  const searchParams = useSearchParams(); // ✅ NEW
+  const router = useRouter(); // ✅ NEW
 
   const [view, setView] = useState('home');
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -144,22 +138,32 @@ export default function HomePage({
   useEffect(() => { onCartCountChange?.(cart.reduce((s, i) => s + i.quantity, 0)); }, [cart, onCartCountChange]);
   useEffect(() => { if (showCartProp) setShowCart(true); }, [showCartProp]);
 
-  // ── Derived: banners & categories ──
-  const activeBanners = cmsBanners
-    .filter(b => b.is_active && (b.market === 'both' || b.market === market))
-    .sort((a, b) => a.sort_order - b.sort_order);
+  // ── Derived: banners & categories (memoized — only recompute when their source data changes) ──
+  const activeBanners = useMemo(() => (
+    cmsBanners
+      .filter(b => b.is_active && (b.market === 'both' || b.market === market))
+      .sort((a, b) => a.sort_order - b.sort_order)
+  ), [cmsBanners, market]);
 
-  const slides: Slide[] = activeBanners.length > 0
-    ? activeBanners.map(b => ({ id: b.id, image: b.image_url, fallback: '', title: b.title, sub: b.subtitle, tag: b.tag, buttonLabel: b.button_label || 'Shop Now', buttonLink: b.button_link || 'all' }))
-    : FALLBACK_SLIDES.map((s, i) => ({ id: `fallback-${i}`, image: s.image, fallback: s.fallback, title: s.title, sub: s.sub, tag: s.tag, buttonLabel: 'Shop Now', buttonLink: 'all' }));
+  const slides: Slide[] = useMemo(() => (
+    activeBanners.length > 0
+      ? activeBanners.map(b => ({ id: b.id, image: b.image_url, fallback: '', title: b.title, sub: b.subtitle, tag: b.tag, buttonLabel: b.button_label || 'Shop Now', buttonLink: b.button_link || 'all' }))
+      : FALLBACK_SLIDES.map((s, i) => ({ id: `fallback-${i}`, image: s.image, fallback: s.fallback, title: s.title, sub: s.sub, tag: s.tag, buttonLabel: 'Shop Now', buttonLink: 'all' }))
+  ), [activeBanners]);
 
-  const activeCategories = cmsCategories.filter(c => c.is_active).sort((a, b) => a.sort_order - b.sort_order);
+  const activeCategories = useMemo(() => (
+    cmsCategories.filter(c => c.is_active).sort((a, b) => a.sort_order - b.sort_order)
+  ), [cmsCategories]);
 
-  const categoriesForGrid = activeCategories.length > 0
-    ? activeCategories.map(c => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }))
-    : FALLBACK_CATEGORIES.map(c => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }));
+  const categoriesForGrid = useMemo(() => (
+    activeCategories.length > 0
+      ? activeCategories.map(c => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }))
+      : FALLBACK_CATEGORIES.map(c => ({ label: c.label, value: c.value, image: c.image_url, emoji: c.emoji }))
+  ), [activeCategories]);
 
-  const categoriesForFilter = [{ label: 'All', value: 'all', image: '', emoji: '' }, ...categoriesForGrid];
+  const categoriesForFilter = useMemo(() => (
+    [{ label: 'All', value: 'all', image: '', emoji: '' }, ...categoriesForGrid]
+  ), [categoriesForGrid]);
 
   useEffect(() => {
     if (slides.length === 0) return;
@@ -178,47 +182,64 @@ export default function HomePage({
   }, []);
   useEffect(() => { loadProducts(); }, [loadProducts]);
 
-  // ── Derived: filters ──
-  const allColors = [...new Set(allProducts.flatMap(p => p.colors ?? []))];
-  const allSizes  = [...new Set(allProducts.flatMap(p => p.sizes  ?? []))];
+  // ── Derived: filters (memoized — these used to recompute on every render,
+  // including renders caused by unrelated state like sidebarOpen/cart/etc.
+  // With 100s of products, that recompute+resort was the main source of lag.) ──
+  const allColors = useMemo(() => (
+    [...new Set(allProducts.flatMap(p => p.colors ?? []))]
+  ), [allProducts]);
 
-  let filtered = allProducts.filter(p => {
-    const matchCat = activeCategory === 'all' || p.category === activeCategory;
+  const allSizes = useMemo(() => (
+    [...new Set(allProducts.flatMap(p => p.sizes ?? []))]
+  ), [allProducts]);
+
+  const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const matchSearch = !q || [p.name, p.description, p.category].some((f: string) => f?.toLowerCase().includes(q));
     const minP = priceMin ? +priceMin : 0;
     const maxP = priceMax ? +priceMax : Infinity;
-    const matchPrice = p.price >= minP && p.price <= maxP;
-    const matchColor = !selectedColors.length || selectedColors.some(c => p.colors?.includes(c));
-    const matchSize = !selectedSizes.length || selectedSizes.some(s => p.sizes?.includes(s));
-    return matchCat && matchSearch && matchPrice && matchColor && matchSize;
-  });
-  filtered = [...filtered].sort((a, b) => {
-    if (sortBy === 'price-asc') return a.price - b.price;
-    if (sortBy === 'price-desc') return b.price - a.price;
-    if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
-    if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
-    return 0;
-  });
+
+    let list = allProducts.filter(p => {
+      const matchCat = activeCategory === 'all' || p.category === activeCategory;
+      const matchSearch = !q || [p.name, p.description, p.category].some((f: string) => f?.toLowerCase().includes(q));
+      const matchPrice = p.price >= minP && p.price <= maxP;
+      const matchColor = !selectedColors.length || selectedColors.some(c => p.colors?.includes(c));
+      const matchSize = !selectedSizes.length || selectedSizes.some(s => p.sizes?.includes(s));
+      return matchCat && matchSearch && matchPrice && matchColor && matchSize;
+    });
+
+    list = [...list].sort((a, b) => {
+      if (sortBy === 'price-asc') return a.price - b.price;
+      if (sortBy === 'price-desc') return b.price - a.price;
+      if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
+      if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
+      return 0;
+    });
+
+    return list;
+  }, [allProducts, activeCategory, searchQuery, priceMin, priceMax, selectedColors, selectedSizes, sortBy]);
 
   const checkoutItems = checkoutProduct ? [checkoutProduct] : cart;
   const orderTotal = checkoutItems.reduce((s, i) => s + i.price * (i.quantity || 1), 0);
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const currentCartCount = cart.reduce((s, i) => s + i.quantity, 0);
-  const featured = allProducts.slice(0, 8);
-  const newArrivals = [...allProducts].reverse().slice(0, 8);
-  const trendingNow = allProducts.length > 4
-    ? [...allProducts].sort((a, b) => (b.price || 0) - (a.price || 0)).slice(0, 10)
-    : allProducts;
+
+  const featured = useMemo(() => allProducts.slice(0, 8), [allProducts]);
+  const newArrivals = useMemo(() => [...allProducts].reverse().slice(0, 8), [allProducts]);
+  const trendingNow = useMemo(() => (
+    allProducts.length > 4
+      ? [...allProducts].sort((a, b) => (b.price || 0) - (a.price || 0)).slice(0, 10)
+      : allProducts
+  ), [allProducts]);
 
   // ✅ FIX: Date check hata diya — sirf enabled flag check karo
-  // Admin se jo bhi date set ho, banner show hoga jab tak enabled = true hai
   const showFlashSale = siteSettings.flash_sale_enabled;
   const showFestival  = siteSettings.festival_enabled;
 
-  const festivalProducts = showFestival
-    ? allProducts.filter(p => p.festival_tag && p.festival_tag === siteSettings.festival_category).slice(0, 8)
-    : [];
+  const festivalProducts = useMemo(() => (
+    showFestival
+      ? allProducts.filter(p => p.festival_tag && p.festival_tag === siteSettings.festival_category).slice(0, 8)
+      : []
+  ), [showFestival, allProducts, siteSettings.festival_category]);
 
   const activeFiltersCount = (priceMin || priceMax ? 1 : 0) + (selectedColors.length ? 1 : 0) + (selectedSizes.length ? 1 : 0);
 
@@ -250,6 +271,30 @@ export default function HomePage({
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    const urlSearch = searchParams.get('search');
+    const urlCategory = searchParams.get('category');
+    const urlOpenProduct = searchParams.get('openProduct');
+
+    if (urlOpenProduct) {
+      if (allProducts.length === 0) return;
+      const product = allProducts.find(
+        (p: any) => p._id === urlOpenProduct || p.id === urlOpenProduct || p.slug === urlOpenProduct
+      );
+      if (product) {
+        openProductPage(product);
+      }
+      router.replace('/', { scroll: false });
+      return;
+    }
+
+    if (urlSearch || urlCategory) {
+      navigateTo(urlCategory || 'all', urlSearch || '');
+      router.replace('/', { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, allProducts]);
 
   const addToCart = (product: any, color?: string, size?: string, qty = 1) => {
     const finalColor = color ?? selectedColor ?? product.colors?.[0] ?? '';
@@ -331,13 +376,15 @@ export default function HomePage({
 
   const clearFilters = () => { setPriceMin(''); setPriceMax(''); setSelectedColors([]); setSelectedSizes([]); setSortBy('default'); };
 
-  // ✅ FIX: _id ?? id — Supabase id ko AI ke liye _id mein convert karo
-  const chatProducts = allProducts.map(p => ({
-    _id: p._id ?? p.id,
-    name: p.name, price: p.price, images: p.images ?? [],
-    category: p.category, description: p.description ?? '',
-    colors: p.colors ?? [], sizes: p.sizes ?? [],
-  }));
+  // ✅ FIX: _id ?? id — Supabase id ko AI ke liye _id mein convert karo (memoized)
+  const chatProducts = useMemo(() => (
+    allProducts.map(p => ({
+      _id: p._id ?? p.id,
+      name: p.name, price: p.price, images: p.images ?? [],
+      category: p.category, description: p.description ?? '',
+      colors: p.colors ?? [], sizes: p.sizes ?? [],
+    }))
+  ), [allProducts]);
 
   // ─ FULL PRODUCT PAGE ─
   if (viewProductPage) {
@@ -418,7 +465,6 @@ export default function HomePage({
             </div>
           </section>
 
-          {/* ✅ FIX: Date check hata diya — sirf enabled flag se show/hide hoga */}
           {showFlashSale && (
             <FlashSaleBanner
               discount={siteSettings.flash_sale_discount}
@@ -512,12 +558,12 @@ export default function HomePage({
           <section className="py-8 max-w-7xl mx-auto px-4">
             <div className="grid md:grid-cols-2 gap-5">
               <div onClick={() => navigateTo('women')} className="relative cursor-pointer rounded-3xl overflow-hidden group" style={{ height: '200px' }}>
-                <img src="https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=800&auto=format&fit=crop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Women's Collection" />
+                <img src="https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=800&auto=format&fit=crop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Women's Collection" loading="lazy" decoding="async" />
                 <div className="absolute inset-0 bg-gradient-to-r from-purple-900/70 to-purple-900/20" />
                 <div className="absolute inset-0 flex items-center px-8"><div><p className="text-purple-200 text-xs font-bold uppercase tracking-widest">New Arrivals</p><h3 className="text-white text-3xl font-black">Women's Collection</h3><button className="mt-3 bg-white text-purple-700 px-5 py-2 rounded-xl text-sm font-bold hover:bg-purple-50 transition-colors">Shop Now</button></div></div>
               </div>
               <div onClick={() => navigateTo('men')} className="relative cursor-pointer rounded-3xl overflow-hidden group" style={{ height: '200px' }}>
-                <img src="https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?w=800&auto=format&fit=crop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Men's Styles" />
+                <img src="https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?w=800&auto=format&fit=crop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Men's Styles" loading="lazy" decoding="async" />
                 <div className="absolute inset-0 bg-gradient-to-r from-gray-900/70 to-gray-900/20" />
                 <div className="absolute inset-0 flex items-center px-8"><div><p className="text-gray-300 text-xs font-bold uppercase tracking-widest">Trending</p><h3 className="text-white text-3xl font-black">Men's Styles</h3><button className="mt-3 bg-white text-gray-900 px-5 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition-colors">Shop Now</button></div></div>
               </div>

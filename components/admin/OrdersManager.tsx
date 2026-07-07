@@ -9,8 +9,19 @@ const ORDER_STATUSES = ['new', 'pending', 'completed', 'delivered'] as const;
 type OrderStatus = typeof ORDER_STATUSES[number];
 type OrderFilter = 'all' | OrderStatus;
 
-function OrderDetailModal({ order, onClose, onSubmitCJ, cjSubmitting, cjResult }: {
-  order: Order; onClose: () => void; onSubmitCJ: (id: string) => void; cjSubmitting: boolean; cjResult: string;
+type ResellerInfo = { id: string; name: string; email?: string; phone?: string };
+
+function OrderDetailModal({
+  order, resellerInfo, onClose, onSubmitCJ, cjSubmitting, cjResult, onMarkProfitPaid, markingPaid,
+}: {
+  order: Order;
+  resellerInfo?: ResellerInfo;
+  onClose: () => void;
+  onSubmitCJ: (id: string) => void;
+  cjSubmitting: boolean;
+  cjResult: string;
+  onMarkProfitPaid: (id: string) => void;
+  markingPaid: boolean;
 }) {
   return (
     <>
@@ -34,8 +45,30 @@ function OrderDetailModal({ order, onClose, onSubmitCJ, cjSubmitting, cjResult }
             </div>
 
             {(order as any).reseller_id && (
-              <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-2 text-xs text-blue-700 font-semibold">
-                Reseller order — Profit: Rs. {Number((order as any).reseller_profit ?? 0).toLocaleString()}
+              <div className="bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 space-y-2">
+                <p className="text-xs font-bold text-blue-700 uppercase tracking-wide">Reseller Info</p>
+                <div className="text-sm text-blue-900">
+                  <p><span className="text-blue-500 font-medium">Name:</span> {resellerInfo?.name || 'Unknown'}</p>
+                  {resellerInfo?.phone && <p><span className="text-blue-500 font-medium">Phone:</span> {resellerInfo.phone}</p>}
+                  {resellerInfo?.email && <p><span className="text-blue-500 font-medium">Email:</span> {resellerInfo.email}</p>}
+                  <p className="mt-1"><span className="text-blue-500 font-medium">Profit:</span> <span className="font-bold">Rs. {Number((order as any).reseller_profit ?? 0).toLocaleString()}</span></p>
+                </div>
+
+                <div className="pt-2 border-t border-blue-100 mt-2">
+                  {(order as any).profit_paid ? (
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-full">✓ Profit Paid</span>
+                      {(order as any).profit_paid_at && (
+                        <span className="text-xs text-gray-400">{fmt((order as any).profit_paid_at)}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <button onClick={() => onMarkProfitPaid(order.id)} disabled={markingPaid}
+                      className="w-full bg-green-600 text-white py-2 rounded-xl text-xs font-bold disabled:opacity-60">
+                      {markingPaid ? 'Marking...' : 'Mark Profit as Paid'}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -83,7 +116,6 @@ function OrderDetailModal({ order, onClose, onSubmitCJ, cjSubmitting, cjResult }
               <span className="text-2xl font-black text-green-700">Rs. {Number(order.total).toLocaleString()}</span>
             </div>
 
-            {/* CJ Submission */}
             <div className="border-2 border-blue-100 bg-blue-50 rounded-2xl p-4">
               <p className="text-sm font-bold text-blue-700 mb-2">CJ Dropshipping Fulfillment</p>
               {(order as any).cj_order_id ? (
@@ -105,12 +137,14 @@ function OrderDetailModal({ order, onClose, onSubmitCJ, cjSubmitting, cjResult }
 
 export default function OrdersManager() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [resellers, setResellers] = useState<Record<string, ResellerInfo>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderFilter, setOrderFilter] = useState<OrderFilter>('all');
   const [viewOrder, setViewOrder] = useState<Order | undefined>();
   const [cjSubmitting, setCjSubmitting] = useState(false);
   const [cjResult, setCjResult] = useState('');
+  const [markingPaid, setMarkingPaid] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true); setError(null);
@@ -124,7 +158,21 @@ export default function OrdersManager() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  const fetchResellers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/accounts');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const map: Record<string, ResellerInfo> = {};
+        data.filter((a: any) => a.role === 'reseller').forEach((a: any) => {
+          map[a.id] = { id: a.id, name: a.name, email: a.email, phone: a.phone };
+        });
+        setResellers(map);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchOrders(); fetchResellers(); }, [fetchOrders, fetchResellers]);
 
   const deleteItem = async (id: string) => {
     if (!confirm('Are you sure?')) return;
@@ -140,6 +188,23 @@ export default function OrdersManager() {
       await fetch(`/api/orders/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
       fetchOrders();
     } catch { alert('Failed to update status'); }
+  };
+
+  const markProfitPaid = async (id: string) => {
+    setMarkingPaid(true);
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profit_paid: true, profit_paid_at: new Date().toISOString() }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.message ?? 'Failed to update'); }
+      await fetchOrders();
+      // keep modal in sync with latest data
+      setViewOrder(prev => prev ? { ...prev, profit_paid: true, profit_paid_at: new Date().toISOString() } as any : prev);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to mark as paid');
+    } finally { setMarkingPaid(false); }
   };
 
   const submitToCJ = async (orderId: string) => {
@@ -161,8 +226,13 @@ export default function OrdersManager() {
   return (
     <div>
       {viewOrder && (
-        <OrderDetailModal order={viewOrder} onClose={() => { setViewOrder(undefined); setCjResult(''); }}
-          onSubmitCJ={submitToCJ} cjSubmitting={cjSubmitting} cjResult={cjResult} />
+        <OrderDetailModal
+          order={viewOrder}
+          resellerInfo={(viewOrder as any).reseller_id ? resellers[(viewOrder as any).reseller_id] : undefined}
+          onClose={() => { setViewOrder(undefined); setCjResult(''); }}
+          onSubmitCJ={submitToCJ} cjSubmitting={cjSubmitting} cjResult={cjResult}
+          onMarkProfitPaid={markProfitPaid} markingPaid={markingPaid}
+        />
       )}
 
       <div className="flex items-center justify-between mb-4">
@@ -186,41 +256,52 @@ export default function OrdersManager() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b-2 border-gray-100 sticky top-0 z-10">
                 <tr>
-                  {['Customer ID','Customer','Total','Reseller','CJ Status','Date','Status','Update','Actions'].map(h => (
+                  {['Customer ID','Customer','Total','Reseller','Profit Status','CJ Status','Date','Status','Update','Actions'].map(h => (
                     <th key={h} className="text-left px-3 py-3.5 text-gray-500 font-semibold text-xs uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filteredOrders.length === 0 ? (
-                  <tr><td colSpan={9} className="text-center py-16 text-gray-400">No orders</td></tr>
-                ) : filteredOrders.map(o => (
-                  <tr key={o.id} className="hover:bg-violet-50/30 transition-colors">
-                    <td className="px-3 py-3.5 font-mono text-gray-700 whitespace-nowrap">#{o.id?.slice(0, 8)}</td>
-                    <td className="px-3 py-3.5 font-semibold text-gray-800 whitespace-nowrap">{o.customer?.name}</td>
-                    <td className="px-3 py-3.5 font-bold text-violet-700 whitespace-nowrap">Rs. {Number(o.total).toLocaleString()}</td>
-                    <td className="px-3 py-3.5">
-                      {(o as any).reseller_id
-                        ? <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-semibold">Rs. {Number((o as any).reseller_profit ?? 0).toLocaleString()}</span>
-                        : <span className="text-xs text-gray-300">Direct</span>}
-                    </td>
-                    <td className="px-3 py-3.5"><StatusBadge status={(o as any).cj_status ?? 'not_submitted'} /></td>
-                    <td className="px-3 py-3.5 text-gray-400 text-xs whitespace-nowrap">{fmt(o.created_at)}</td>
-                    <td className="px-3 py-3.5"><StatusBadge status={o.status} /></td>
-                    <td className="px-3 py-3.5">
-                      <select value={o.status} onChange={e => updateOrderStatus(o.id, e.target.value as OrderStatus)}
-                        className="text-xs border-2 border-gray-200 rounded-xl px-2 py-1.5 text-gray-800 bg-white font-medium">
-                        {ORDER_STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
-                      </select>
-                    </td>
-                    <td className="px-3 py-3.5">
-                      <div className="flex gap-1.5">
-                        <button onClick={() => setViewOrder(o)} className="text-blue-600 text-xs font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition whitespace-nowrap">Details</button>
-                        <button onClick={() => deleteItem(o.id)} className="text-red-500 text-xs font-semibold bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1"><TrashIcon /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                  <tr><td colSpan={10} className="text-center py-16 text-gray-400">No orders</td></tr>
+                ) : filteredOrders.map(o => {
+                  const rid = (o as any).reseller_id;
+                  const rInfo = rid ? resellers[rid] : undefined;
+                  return (
+                    <tr key={o.id} className="hover:bg-violet-50/30 transition-colors">
+                      <td className="px-3 py-3.5 font-mono text-gray-700 whitespace-nowrap">#{o.id?.slice(0, 8)}</td>
+                      <td className="px-3 py-3.5 font-semibold text-gray-800 whitespace-nowrap">{o.customer?.name}</td>
+                      <td className="px-3 py-3.5 font-bold text-violet-700 whitespace-nowrap">Rs. {Number(o.total).toLocaleString()}</td>
+                      <td className="px-3 py-3.5">
+                        {rid
+                          ? <span className="text-xs bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full font-semibold whitespace-nowrap">{rInfo?.name ?? 'Unknown'} · Rs. {Number((o as any).reseller_profit ?? 0).toLocaleString()}</span>
+                          : <span className="text-xs text-gray-300">Direct</span>}
+                      </td>
+                      <td className="px-3 py-3.5">
+                        {rid ? (
+                          (o as any).profit_paid
+                            ? <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-semibold">Paid</span>
+                            : <span className="text-xs bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full font-semibold">Pending</span>
+                        ) : <span className="text-xs text-gray-300">—</span>}
+                      </td>
+                      <td className="px-3 py-3.5"><StatusBadge status={(o as any).cj_status ?? 'not_submitted'} /></td>
+                      <td className="px-3 py-3.5 text-gray-400 text-xs whitespace-nowrap">{fmt(o.created_at)}</td>
+                      <td className="px-3 py-3.5"><StatusBadge status={o.status} /></td>
+                      <td className="px-3 py-3.5">
+                        <select value={o.status} onChange={e => updateOrderStatus(o.id, e.target.value as OrderStatus)}
+                          className="text-xs border-2 border-gray-200 rounded-xl px-2 py-1.5 text-gray-800 bg-white font-medium">
+                          {ORDER_STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-3 py-3.5">
+                        <div className="flex gap-1.5">
+                          <button onClick={() => setViewOrder(o)} className="text-blue-600 text-xs font-semibold bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition whitespace-nowrap">Details</button>
+                          <button onClick={() => deleteItem(o.id)} className="text-red-500 text-xs font-semibold bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition flex items-center gap-1"><TrashIcon /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
