@@ -17,12 +17,17 @@ interface Stats {
   marketBreakdown: { pk: { orders: number; revenue: number }; us: { orders: number; revenue: number } };
   recentOrders:    RecentOrder[];
   statusBreakdown: Record<string, number>;
+  activeResellers:  number;
+  pendingResellers: number;
+  customerAccounts: number;
+  visitorsToday:    number;
+  visitors30d:      number;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const fmtPKR = (n: number) => `Rs. ${Math.round(n).toLocaleString('en-PK')}`;
-const fmtUSD = (n: number) => `$${(n / 280).toFixed(0)}`;
-const fmtNum = (n: number) => n.toLocaleString();
+// ── Helpers (undefined-safe) ──────────────────────────────────────────────────
+const fmtPKR = (n?: number) => `Rs. ${Math.round(n ?? 0).toLocaleString('en-PK')}`;
+const fmtUSD = (n?: number) => `$${((n ?? 0) / 280).toFixed(0)}`;
+const fmtNum = (n?: number) => (n ?? 0).toLocaleString();
 
 const STATUS_COLOR: Record<string, string> = {
   new:       'bg-blue-100 text-blue-700',
@@ -42,7 +47,6 @@ function BarChart({ data, valueKey }: { data: MonthData[]; valueKey: 'revenue' |
         const isLast = i === data.length - 1;
         return (
           <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
-            {/* Tooltip */}
             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
               {d.label}: {valueKey === 'revenue' ? fmtPKR(d[valueKey]) : d[valueKey]}
             </div>
@@ -76,7 +80,28 @@ export default function AdminDashboard() {
     try {
       const res = await fetch(`/api/admin/stats?market=${m}`);
       if (!res.ok) throw new Error('Failed to load stats');
-      setStats(await res.json());
+      const data = await res.json();
+
+      // Missing fields ko safe defaults do — API chahe jo bhi bheje
+      setStats({
+        totalRevenue:    data.totalRevenue    ?? 0,
+        totalOrders:     data.totalOrders     ?? 0,
+        monthRevenue:    data.monthRevenue    ?? 0,
+        monthOrders:     data.monthOrders     ?? 0,
+        totalProducts:   data.totalProducts   ?? 0,
+        monthlyHistory:  data.monthlyHistory  ?? [],
+        marketBreakdown: {
+          pk: { orders: data.marketBreakdown?.pk?.orders ?? 0, revenue: data.marketBreakdown?.pk?.revenue ?? 0 },
+          us: { orders: data.marketBreakdown?.us?.orders ?? 0, revenue: data.marketBreakdown?.us?.revenue ?? 0 },
+        },
+        recentOrders:    data.recentOrders    ?? [],
+        statusBreakdown: data.statusBreakdown ?? {},
+        activeResellers:  data.activeResellers  ?? 0,
+        pendingResellers: data.pendingResellers ?? 0,
+        customerAccounts: data.customerAccounts ?? 0,
+        visitorsToday:    data.visitorsToday    ?? 0,
+        visitors30d:      data.visitors30d      ?? 0,
+      });
     } catch (e: any) {
       setError(e.message ?? 'Error loading stats');
     } finally {
@@ -86,11 +111,33 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchStats(market); }, [market, fetchStats]);
 
-  const isPK     = market !== 'us';
-  const fmtMoney = (n: number) => market === 'us' ? fmtUSD(n) : fmtPKR(n);
+  const fmtMoney = (n?: number) => market === 'us' ? fmtUSD(n) : fmtPKR(n);
 
   // ── Stat cards data ───────────────────────────────────────────────────────
   const cards = stats ? [
+    // 👇 naye cards — sabse upar/front
+    {
+      label: 'Active Resellers',
+      value: fmtNum(stats.activeResellers),
+      sub:   `${stats.pendingResellers} pending approval`,
+      color: 'from-indigo-600 to-blue-500',
+      icon:  '🧑‍💼',
+    },
+    {
+      label: 'Customer Accounts',
+      value: fmtNum(stats.customerAccounts),
+      sub:   'Registered customers',
+      color: 'from-fuchsia-600 to-pink-500',
+      icon:  '👥',
+    },
+    {
+      label: 'Visitors Today',
+      value: fmtNum(stats.visitorsToday),
+      sub:   `${fmtNum(stats.visitors30d)} in last 30 days`,
+      color: 'from-teal-600 to-cyan-500',
+      icon:  '👁️',
+    },
+    // ── purane cards ──
     {
       label:  'Total Revenue',
       value:  fmtMoney(stats.totalRevenue),
@@ -168,13 +215,13 @@ export default function AdminDashboard() {
 
       {/* ── Stat Cards ── */}
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+          {[...Array(9)].map((_, i) => (
             <div key={i} className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
           {cards.map((c, i) => (
             <div key={i} className={`bg-gradient-to-br ${c.color} rounded-2xl p-5 text-white shadow-lg`}>
               <div className="flex items-start justify-between mb-2">
@@ -218,7 +265,6 @@ export default function AdminDashboard() {
             <h2 className="text-sm font-black text-gray-900 mb-1">Market Breakdown</h2>
             <p className="text-xs text-gray-400 mb-4">PK vs US performance</p>
             <div className="space-y-4">
-              {/* PK */}
               <div>
                 <div className="flex justify-between mb-1.5">
                   <span className="text-xs font-bold text-gray-700">🇵🇰 Pakistan</span>
@@ -230,7 +276,6 @@ export default function AdminDashboard() {
                 </div>
                 <p className="text-xs text-gray-400 mt-1">{fmtPKR(stats.marketBreakdown.pk.revenue)}</p>
               </div>
-              {/* US */}
               <div>
                 <div className="flex justify-between mb-1.5">
                   <span className="text-xs font-bold text-gray-700">🇺🇸 USA</span>
@@ -243,7 +288,6 @@ export default function AdminDashboard() {
                 <p className="text-xs text-gray-400 mt-1">{fmtUSD(stats.marketBreakdown.us.revenue)}</p>
               </div>
 
-              {/* Status breakdown */}
               <div className="pt-3 border-t border-gray-100">
                 <p className="text-xs font-black text-gray-700 mb-2">Order Status</p>
                 <div className="flex flex-wrap gap-2">

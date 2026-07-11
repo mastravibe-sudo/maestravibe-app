@@ -6,11 +6,21 @@ export const STATUS_COLORS: Record<string, string> = {
   pending:   'bg-amber-100 text-amber-700 border border-amber-200',
   completed: 'bg-green-100 text-green-700 border border-green-200',
   delivered: 'bg-teal-100 text-teal-700 border border-teal-200',
-  read:      'bg-gray-100 text-gray-600 border border-gray-200',
+  read:      'bg-gray-100 text-gray-700 border border-gray-200',
   replied:   'bg-purple-100 text-purple-700 border border-purple-200',
-  not_submitted: 'bg-gray-100 text-gray-500 border border-gray-200',
+  not_submitted: 'bg-gray-100 text-gray-600 border border-gray-200',
   submitted:      'bg-blue-100 text-blue-700 border border-blue-200',
   shipped:        'bg-teal-100 text-teal-700 border border-teal-200',
+};
+
+// ── Text-contrast tokens ──
+// Use these instead of ad-hoc text-gray-300/400 so nothing "fades out" on white backgrounds.
+export const TXT = {
+  heading:   'text-gray-900',
+  body:      'text-gray-700',
+  muted:     'text-gray-500',   // secondary labels — still readable
+  faint:     'text-gray-400',   // ONLY for placeholders / truly decorative text
+  empty:     'text-gray-400',   // "—" / empty-state dashes
 };
 
 export function sanitizeFileName(fileName: string): string {
@@ -37,9 +47,39 @@ export function fmt(date: string) {
 
 export function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-500'}`}>
+    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700'}`}>
       {status?.replace(/_/g, ' ')}
     </span>
+  );
+}
+
+// ── Reusable dashboard stat card ──
+export function StatCard({
+  label, value, sub, tone = 'violet', icon, loading,
+}: {
+  label: string; value: string | number; sub?: string;
+  tone?: 'violet' | 'blue' | 'green' | 'amber' | 'rose' | 'gray';
+  icon?: React.ReactNode; loading?: boolean;
+}) {
+  const tones: Record<string, string> = {
+    violet: 'bg-violet-50 border-violet-200 text-violet-700',
+    blue:   'bg-blue-50 border-blue-200 text-blue-700',
+    green:  'bg-green-50 border-green-200 text-green-700',
+    amber:  'bg-amber-50 border-amber-200 text-amber-700',
+    rose:   'bg-rose-50 border-rose-200 text-rose-700',
+    gray:   'bg-gray-50 border-gray-200 text-gray-700',
+  };
+  return (
+    <div className={`rounded-2xl border-2 p-4 flex items-start justify-between ${tones[tone]}`}>
+      <div>
+        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide">{label}</p>
+        <p className="text-2xl font-black mt-1 text-gray-900">
+          {loading ? <span className="inline-block w-10 h-6 bg-gray-200 rounded animate-pulse" /> : value}
+        </p>
+        {sub && <p className="text-xs text-gray-500 mt-0.5">{sub}</p>}
+      </div>
+      {icon && <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tones[tone]} bg-white/60`}>{icon}</div>}
+    </div>
   );
 }
 
@@ -56,7 +96,7 @@ export function SpinnerIcon() {
 
 export const RefreshIcon  = () => <Ico d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />;
 export const CloseIcon    = () => <Ico d="M6 18L18 6M6 6l12 12" />;
-export const UploadIcon   = () => <Ico cls="w-8 h-8 text-gray-300" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />;
+export const UploadIcon   = () => <Ico cls="w-8 h-8 text-gray-400" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />;
 export const EditIcon     = () => <Ico cls="w-3.5 h-3.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />;
 export const TrashIcon    = () => <Ico cls="w-3.5 h-3.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />;
 export const LogoutIcon   = () => <Ico d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />;
@@ -71,3 +111,6 @@ export const AccountsIco  = () => <Ico d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a
 export const FestIco      = () => <Ico d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />;
 export const LayersIco    = () => <Ico cls="w-3.5 h-3.5" d="M12 4l8 4-8 4-8-4 8-4zm0 8l8 4-8 4-8-4 8-4z" />;
 export const CJIco        = () => <Ico d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />;
+export const DashIco      = () => <Ico d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />;
+export const EyeIco       = () => <Ico d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />;
+export const LinkIco      = () => <Ico cls="w-3.5 h-3.5" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />;
