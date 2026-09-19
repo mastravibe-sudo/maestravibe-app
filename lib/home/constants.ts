@@ -127,6 +127,22 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   flash_sale_discount: 50,
   flash_sale_category: 'sale',
 
+  // Market-specific Flash Sale defaults — fall back to the shared values
+  // above so existing behaviour is unchanged until /api/settings sends
+  // real per-market data.
+  flash_sale_discount_pk: 50,
+  flash_sale_discount_us: 50,
+  flash_sale_ends_at_pk:  '2030-01-01T00:00:00.000Z',
+  flash_sale_ends_at_us:  '2030-01-01T00:00:00.000Z',
+  flash_sale_category_pk: 'sale',
+  flash_sale_category_us: 'sale',
+  flash_sale_theme_pk:    'violet',
+  flash_sale_theme_us:    'violet',
+  flash_sale_image_pk:    '',
+  flash_sale_image_us:    '',
+  flash_sale_label_pk:    '',
+  flash_sale_label_us:    '',
+
   festival_enabled:    false,
   festival_ends_at:    '2030-01-08T00:00:00.000Z',
   festival_discount:   30,
@@ -135,6 +151,16 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   us_festival_label:   '',
   festival_theme_pk:   'emerald',
   festival_theme_us:   'blue',
+
+  // Market-specific Festival defaults — same fallback approach as above.
+  festival_discount_pk: 30,
+  festival_discount_us: 30,
+  festival_ends_at_pk:  '2030-01-08T00:00:00.000Z',
+  festival_ends_at_us:  '2030-01-08T00:00:00.000Z',
+  festival_category_pk: 'sale',
+  festival_category_us: 'sale',
+  festival_image_pk:    '',
+  festival_image_us:    '',
 
   pk_banner_title: '🎉 Sale up to 50% off · Free delivery above Rs. 1,500 · Cash on Delivery · 7-day returns',
   us_banner_title: '🎉 Sale up to 50% off · Free shipping above $50 · Secure Checkout · Easy Returns',

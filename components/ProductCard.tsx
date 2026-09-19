@@ -67,7 +67,7 @@ export default function ProductCard({ product, onAddToCart }: Props) {
 
         <button
           onClick={() => onAddToCart?.(product)}
-          className="mt-3 w-full bg-purple-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-purple-700 transition-colors"
+          className="mt-3 w-full min-h-11 bg-purple-600 text-white text-sm font-medium py-2 rounded-lg hover:bg-purple-700 transition-colors"
         >
           Add to Cart
         </button>

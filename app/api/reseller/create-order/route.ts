@@ -1,19 +1,21 @@
 // app/api/reseller/create-order/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { getSession } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase-admin';
+import { requireReseller } from '@/lib/auth';
+import { validateCustomerDetails, type OrderMarket } from '@/lib/order-validation';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session || session.role !== 'reseller') {
+    const session = await requireReseller();
+    if (!session) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 403 });
     }
 
     const body = await req.json();
     const { items, customer } = body;
+    const market: OrderMarket = body.market === 'us' ? 'us' : 'pk';
     // items: [{ productId, name, image, basePrice, resellerPrice, quantity, selectedColor, selectedSize }]
 
     if (!items || items.length === 0 || !customer?.name || !customer?.phone || !customer?.address) {
@@ -21,6 +23,11 @@ export async function POST(req: NextRequest) {
         { message: 'Items and customer details (name, phone, address) are required' },
         { status: 400 }
       );
+    }
+
+    const validation = validateCustomerDetails(customer, market);
+    if (!validation.valid) {
+      return NextResponse.json({ message: 'Please correct the customer delivery details.', fieldErrors: validation.fieldErrors }, { status: 400 });
     }
 
     for (const item of items) {
@@ -36,15 +43,19 @@ export async function POST(req: NextRequest) {
     const baseTotal = items.reduce((s: number, i: any) => s + i.basePrice * i.quantity, 0);
     const profit = total - baseTotal;
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
+    const supabase = createAdminClient();
 
     const { data, error } = await supabase
       .from('orders')
       .insert([{
-        customer,
+        customer: {
+          ...validation.normalized,
+          verification: {
+            address: { valid: true },
+            phone: { confirmed: false },
+            city: { reviewed: !validation.requiresCityReview },
+          },
+        },
         items: items.map((i: any) => ({
           name: i.name,
           image: i.image,
@@ -58,7 +69,7 @@ export async function POST(req: NextRequest) {
         base_total: baseTotal,
         reseller_profit: profit,
         reseller_id: session.id,
-        status: 'new',
+        status: 'pending_verification',
       }])
       .select()
       .single();

@@ -4,6 +4,7 @@ import { useState, type Dispatch, type SetStateAction } from 'react';
 import Header from '@/components/header';
 import { usePathname } from 'next/navigation';
 import ClientHome from '@/components/ClientHome';
+import StorefrontVisitTracker from '@/components/StorefrontVisitTracker';
 
 interface Props {
   children: React.ReactNode;
@@ -21,6 +22,7 @@ export default function LayoutWrapper({ children }: Props) {
 
   return (
     <>
+      <StorefrontVisitTracker />
       {!hideMainHeader && (
         <Header
           cartCount={cartCount}

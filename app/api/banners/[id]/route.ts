@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Missing Supabase environment variables');
-  return createClient(url, key);
-}
+import { createAdminClient } from '@/lib/supabase-admin';
+import { requireAdmin } from '@/lib/auth';
 
 // PATCH /api/banners/[id]
 export async function PATCH(
@@ -14,7 +8,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = getSupabase();
+    if (!(await requireAdmin())) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const supabase = createAdminClient();
     const body = await req.json();
     const { id } = await params;
 
@@ -46,7 +41,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = getSupabase();
+    if (!(await requireAdmin())) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const supabase = createAdminClient();
     const { id } = await params;
 
     if (!id) {

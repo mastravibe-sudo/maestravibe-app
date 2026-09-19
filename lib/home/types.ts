@@ -6,6 +6,21 @@ export interface SiteSettings {
   flash_sale_discount: number;
   flash_sale_category: string;
 
+  // Market-specific Flash Sale fields — optional so existing data/older
+  // /api/settings responses that don't have them yet still type-check.
+  flash_sale_discount_pk?: number;
+  flash_sale_discount_us?: number;
+  flash_sale_ends_at_pk?:  string;
+  flash_sale_ends_at_us?:  string;
+  flash_sale_category_pk?: string;
+  flash_sale_category_us?: string;
+  flash_sale_theme_pk?:    string;
+  flash_sale_theme_us?:    string;
+  flash_sale_image_pk?:    string;
+  flash_sale_image_us?:    string;
+  flash_sale_label_pk?:    string;
+  flash_sale_label_us?:    string;
+
   festival_enabled:    boolean;
   festival_ends_at:    string;
   festival_discount:   number;
@@ -14,6 +29,16 @@ export interface SiteSettings {
   us_festival_label:   string;
   festival_theme_pk:   string;
   festival_theme_us:   string;
+
+  // Market-specific Festival fields — optional for the same reason as above.
+  festival_discount_pk?: number;
+  festival_discount_us?: number;
+  festival_ends_at_pk?:  string;
+  festival_ends_at_us?:  string;
+  festival_category_pk?: string;
+  festival_category_us?: string;
+  festival_image_pk?:    string;
+  festival_image_us?:    string;
 
   pk_banner_title:     string;
   us_banner_title:     string;
@@ -76,6 +101,26 @@ export interface CustomerInfo {
   address: string;
   city:    string;
   area:    string;
+
+  // ✅ NEW: finer-grained address info + live GPS pin, so riders/HHC/supplier
+  // get an unambiguous drop-off point instead of just free-text city/area.
+  district?:     string; // e.g. "Lahore District"
+  block?:        string; // e.g. "Block C, DHA Phase 5" — manual, no reliable OSM tag for this
+  locationLink?: string; // Google Maps link to the exact detected pin
+  lat?:          number;
+  lng?:          number;
+}
+
+// ✅ NEW: shape of a just-detected (not yet confirmed) GPS location, held in
+// state until the customer explicitly confirms "yes, deliver here".
+export interface DetectedLocation {
+  city:         string;
+  area:         string;
+  district:     string;
+  address:      string;
+  locationLink: string;
+  lat:          number;
+  lng:          number;
 }
 
 export interface Slide {

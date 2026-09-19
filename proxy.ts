@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import jwt from 'jsonwebtoken';
 
 export const config = {
   matcher: ['/admin/:path*'],
@@ -13,9 +14,19 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const session = request.cookies.get('admin_session')?.value;
+  const token = request.cookies.get('session')?.value;
+  if (!token) {
+    const loginUrl = new URL('/admin/login', request.url);
+    return NextResponse.redirect(loginUrl);
+  }
 
-  if (!session || session !== 'authenticated') {
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET!) as { role?: string };
+    if (payload.role !== 'admin') {
+      const loginUrl = new URL('/admin/login', request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+  } catch {
     const loginUrl = new URL('/admin/login', request.url);
     return NextResponse.redirect(loginUrl);
   }

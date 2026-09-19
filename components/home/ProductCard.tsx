@@ -10,12 +10,12 @@ export function ProductBadges({ product, className = '' }: { product: any; class
   return (
     <div className={`flex flex-wrap gap-1 ${className}`}>
       {product.festival_tag && (
-        <span className="bg-rose-600 text-white text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-sm">
+        <span className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shadow-sm">
           <FestIco /> Festival
         </span>
       )}
       {tags.slice(0, 2).map((t: string, i: number) => (
-        <span key={i} className="bg-violet-600/90 text-white text-xs px-2 py-0.5 rounded-full font-semibold shadow-sm whitespace-nowrap">{t}</span>
+        <span key={i} className="bg-violet-600/90 text-white text-[10px] px-2 py-0.5 rounded-full font-semibold shadow-sm whitespace-nowrap">{t}</span>
       ))}
     </div>
   );
@@ -33,54 +33,102 @@ interface ProductCardProps {
   onToggleWish: (id: string) => void;
 }
 
+// ✅ REDESIGNED: quieter, more premium card — no "Buy Now" on the front
+// (browsing should feel like browsing, not a hard sell on every tile).
+// A single small circular "quick add" button replaces the old two-button
+// row; clicking the image/name still opens the full product page, and the
+// hover-revealed eye icon still opens the quick-view modal for a closer
+// look without leaving the grid.
 export default function ProductCard({
   product, market, wishlist, addedToCart,
-  onOpenPage, onQuickView, onAddToCart, onBuyNow, onToggleWish,
+  onOpenPage, onQuickView, onAddToCart, onToggleWish,
 }: ProductCardProps) {
+  const isAdded = addedToCart === product._id;
+
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 group border border-gray-100 flex flex-col">
-      <div className="relative overflow-hidden cursor-pointer bg-gray-50" style={{ height: '210px' }}>
+    <div className="group flex flex-col bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-neutral-800 transition-all duration-300 hover:shadow-lg hover:shadow-gray-200/70 dark:hover:shadow-none dark:hover:border-neutral-700">
+      <div
+        className="relative overflow-hidden cursor-pointer bg-[#F6F4F0] dark:bg-neutral-800"
+        style={{ aspectRatio: '1 / 1' }}
+        onClick={() => onOpenPage(product)}
+      >
         <img
           src={product.images?.[0] ?? 'https://via.placeholder.com/400'}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500"
           alt={product.name}
-          onClick={() => onOpenPage(product)}
         />
-        <div className="absolute top-2 left-2 flex flex-col gap-1 max-w-[70%]">
-          <span className="bg-white/90 backdrop-blur-sm text-gray-700 text-xs px-2.5 py-1 rounded-full font-semibold capitalize shadow-sm w-fit">{product.category}</span>
+
+        <div className="absolute top-3 left-3 flex flex-col gap-1 max-w-[70%]">
+          <span className="bg-white/85 dark:bg-neutral-900/85 backdrop-blur-sm text-gray-600 dark:text-gray-300 text-[10px] uppercase tracking-wide px-2.5 py-1 rounded-full font-semibold capitalize shadow-sm w-fit">
+            {product.category}
+          </span>
           <ProductBadges product={product} />
         </div>
-        <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0">
-          <button onClick={e => { e.stopPropagation(); onToggleWish(product._id); }} className="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:scale-110 transition-transform">
-            <HeartIco filled={wishlist.includes(product._id)} />
-          </button>
-          <button onClick={e => { e.stopPropagation(); onQuickView(product); }} className="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:scale-110 transition-transform">
-            <EyeIco />
-          </button>
-        </div>
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" onClick={() => onOpenPage(product)} />
+
         {Number.isFinite(product.discount_percent) && product.discount_percent > 0 && (
-          <span className="absolute top-2 left-2 mt-12 bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-sm">
+          <span className="absolute top-3 right-3 bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-sm">
             {product.discount_percent}% OFF
           </span>
         )}
+
+        {/* Wishlist + quick-view — revealed on hover, kept out of the way otherwise */}
+        <div className="absolute bottom-3 left-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0">
+          <button
+            onClick={e => { e.stopPropagation(); onToggleWish(product._id); }}
+            className="w-11 h-11 bg-white dark:bg-neutral-900 rounded-full shadow-md flex items-center justify-center hover:scale-110 transition-transform"
+          >
+            <HeartIco filled={wishlist.includes(product._id)} />
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); onQuickView(product); }}
+            className="w-11 h-11 bg-white dark:bg-neutral-900 rounded-full shadow-md flex items-center justify-center hover:scale-110 transition-transform"
+          >
+            <EyeIco />
+          </button>
+        </div>
+
+        {/* Single quick-add action — the only "buy" affordance on the card front */}
+        <button
+          onClick={e => { e.stopPropagation(); onAddToCart(product, product.colors?.[0], product.sizes?.[0]); }}
+          aria-label="Add to cart"
+          className={`absolute bottom-3 right-3 w-11 h-11 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 ${
+            isAdded ? 'bg-green-500 text-white scale-95' : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:scale-110'
+          }`}
+        >
+          {isAdded ? <CheckIco /> : <CartIco cls="w-4 h-4" />}
+        </button>
       </div>
+
       <div className="p-4 flex flex-col flex-1">
-        <h3 onClick={() => onOpenPage(product)} className="font-semibold text-sm mb-1.5 line-clamp-2 cursor-pointer hover:text-violet-600 transition-colors text-gray-800">{product.name}</h3>
-        <div className="flex items-center gap-1 mb-2">{[1,2,3,4,5].map(s => <StarIco key={s} />)}<span className="text-xs text-gray-400 ml-1">(4.8)</span></div>
+        <h3
+          onClick={() => onOpenPage(product)}
+          className="font-medium text-sm mb-1.5 line-clamp-2 cursor-pointer hover:text-violet-600 dark:hover:text-violet-400 transition-colors text-gray-800 dark:text-gray-100"
+        >
+          {product.name}
+        </h3>
+
+        <div className="flex items-center gap-1 mb-2">
+          {[1, 2, 3, 4, 5].map(s => <StarIco key={s} />)}
+          <span className="text-xs text-gray-400 dark:text-gray-500 ml-1">(4.8)</span>
+        </div>
+
         {(product.colors?.length ?? 0) > 0 && (
           <div className="flex gap-1 mb-2.5 flex-wrap">
-            {product.colors.slice(0, 6).map((c: string, i: number) => <span key={i} className="w-4 h-4 rounded-full border-2 border-white shadow-sm ring-1 ring-gray-200 shrink-0" style={{ backgroundColor: c }} title={c} />)}
-            {product.colors?.length > 6 && <span className="text-xs text-gray-400 self-center">+{(product.colors?.length ?? 0) - 6}</span>}
+            {product.colors.slice(0, 6).map((c: string, i: number) => (
+              <span
+                key={i}
+                className="w-3.5 h-3.5 rounded-full border-2 border-white dark:border-neutral-900 shadow-sm ring-1 ring-gray-200 dark:ring-neutral-700 shrink-0"
+                style={{ backgroundColor: c }}
+                title={c}
+              />
+            ))}
+            {product.colors?.length > 6 && (
+              <span className="text-xs text-gray-400 dark:text-gray-500 self-center">+{(product.colors?.length ?? 0) - 6}</span>
+            )}
           </div>
         )}
-        <p className="text-violet-700 font-black text-lg mt-auto mb-3">{formatPrice(product.price, market)}</p>
-        <div className="flex gap-2">
-          <button onClick={() => onAddToCart(product, product.colors?.[0], product.sizes?.[0])} className={`flex-1 py-2.5 text-xs rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-1.5 ${addedToCart === product._id ? 'bg-green-500 text-white scale-95' : 'bg-gray-900 text-white hover:bg-gray-700'}`}>
-            {addedToCart === product._id ? <><CheckIco /> Added</> : <><CartIco cls="w-3.5 h-3.5" /> Add to Cart</>}
-          </button>
-          <button onClick={() => onBuyNow(product, product.colors?.[0], product.sizes?.[0])} className="flex-1 py-2.5 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-semibold transition-all duration-200">Buy Now</button>
-        </div>
+
+        <p className="text-gray-900 dark:text-white font-bold text-base mt-auto">{formatPrice(product.price, market)}</p>
       </div>
     </div>
   );

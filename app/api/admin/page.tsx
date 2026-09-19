@@ -1,5 +1,5 @@
 // app/admin/page.tsx
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 
@@ -7,7 +7,7 @@ export default async function AdminPage() {
   const session = await getSession();
   if (!session || session.email !== process.env.ADMIN_EMAIL) redirect('/login');
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const supabase = createAdminClient();
   const { data: accounts } = await supabase.from('accounts').select('*').order('created_at', { ascending: false });
 
   return (

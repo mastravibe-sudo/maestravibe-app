@@ -4,6 +4,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type { Product, ProductVariant } from '@/lib/supabase';
 import ColorPicker from '@/components/ColorPicker';
+import { adminFetch } from '@/lib/admin-fetch';
 import {
   INPUT, sanitizeFileName, genId, SpinnerIcon,
   UploadIcon, EditIcon, TrashIcon, PlusIcon, FestIco, LayersIco,
@@ -56,7 +57,18 @@ function TagEditor({ tags, setTags }: { tags: string[]; setTags: (t: string[]) =
   );
 }
 
-// ── Variant Editor ──
+// ── Small inline icons used only by the variant editor ──
+const ChevronIco = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+);
+const GridIco = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></svg>
+);
+const AlertIco = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+);
+
+// ── Variant Editor — Shopify-style: one card per variant ──
 function VariantEditor({
   variants, setVariants, sizes, colors, basePrice, baseActualPrice,
 }: {
@@ -86,41 +98,110 @@ function VariantEditor({
     setVariants(combos);
   };
 
+  // Detect duplicate size+color combos so the admin can spot conflicts at a glance
+  const comboCounts = variants.reduce<Record<string, number>>((acc, v) => {
+    const key = `${v.size}__${v.color}`;
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+  const isDupe = (v: ProductVariant) => (comboCounts[`${v.size}__${v.color}`] ?? 0) > 1;
+
+  const prices = variants.map(v => v.price).filter(p => Number.isFinite(p) && p > 0);
+  const minPrice = prices.length ? Math.min(...prices) : null;
+  const maxPrice = prices.length ? Math.max(...prices) : null;
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <p className="text-sm font-semibold text-gray-700">Price Variants</p>
-          <p className="text-xs text-gray-400">Give each size/color its own price &amp; stock.</p>
+          <p className="text-sm font-bold text-gray-800">Variants</p>
+          <p className="text-xs text-gray-400 mt-0.5">Give each size / color its own price, cost &amp; stock.</p>
+          {minPrice !== null && (
+            <p className="text-xs font-semibold text-violet-600 mt-1">
+              {minPrice === maxPrice ? `Rs. ${minPrice.toLocaleString()}` : `Rs. ${minPrice.toLocaleString()} – Rs. ${maxPrice!.toLocaleString()}`}
+              <span className="text-gray-400 font-normal"> · {variants.length} variant{variants.length !== 1 ? 's' : ''}</span>
+            </p>
+          )}
         </div>
         <div className="flex gap-2 shrink-0">
-          <button type="button" onClick={fillAllCombos} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-violet-100 hover:text-violet-700 transition whitespace-nowrap">Generate all combos</button>
-          <button type="button" onClick={addVariant} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white flex items-center gap-1 whitespace-nowrap shadow-sm">
-            <PlusIcon /> Add row
+          <button type="button" onClick={fillAllCombos}
+            disabled={sizes.length === 0 && colors.length === 0}
+            className="text-xs font-bold px-3.5 py-2 rounded-xl bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed">
+            <GridIco /> Generate all combos
+          </button>
+          <button type="button" onClick={addVariant}
+            className="text-xs font-bold px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white flex items-center gap-1.5 shadow-sm shadow-violet-200 hover:shadow-md hover:shadow-violet-300 transition-all active:scale-95">
+            <PlusIcon /> Add variant
           </button>
         </div>
       </div>
-      {variants.length > 0 && (
-        <div className="border-2 border-gray-100 rounded-xl overflow-hidden">
-          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-0 bg-gray-50 text-xs font-semibold text-gray-500 px-3 py-2 border-b border-gray-100">
-            <span>Size</span><span>Color</span><span>Price</span><span>Cost</span><span>Stock</span><span></span>
-          </div>
-          <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
-            {variants.map(v => (
-              <div key={v.id} className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] gap-2 px-3 py-2 items-center">
-                <select value={v.size} onChange={e => update(v.id, { size: e.target.value })} className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
-                  <option value="">—</option>{sizes.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-                <select value={v.color} onChange={e => update(v.id, { color: e.target.value })} className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
-                  <option value="">—</option>{colors.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-                <input type="number" min="0" value={v.price} onChange={e => update(v.id, { price: Number(e.target.value) })} className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-full" placeholder="Price" />
-                <input type="number" min="0" value={v.actual_price ?? ''} onChange={e => update(v.id, { actual_price: e.target.value ? Number(e.target.value) : null })} className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-full" placeholder="Cost" />
-                <input type="number" min="0" value={v.stock ?? ''} onChange={e => update(v.id, { stock: e.target.value ? Number(e.target.value) : null })} className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-full" placeholder="Qty" />
-                <button type="button" onClick={() => remove(v.id)} className="w-7 h-7 flex items-center justify-center rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition"><TrashIcon /></button>
+
+      {variants.length === 0 ? (
+        <div className="border-2 border-dashed border-violet-100 bg-violet-50/40 rounded-2xl py-8 flex flex-col items-center gap-2 text-center px-4">
+          <LayersIco />
+          <p className="text-sm font-semibold text-gray-600">No variants yet</p>
+          <p className="text-xs text-gray-400 max-w-xs">Add a variant manually, or generate every size × color combo in one click.</p>
+        </div>
+      ) : (
+        <div className="space-y-2.5 max-h-[26rem] overflow-y-auto pr-1 -mr-1">
+          {variants.map((v, idx) => (
+            <div key={v.id}
+              className={`relative rounded-2xl border-2 p-3.5 transition-all duration-300 animate-[fadeIn_0.25s_ease] ${isDupe(v) ? 'border-red-200 bg-red-50/50' : 'border-gray-100 bg-white hover:border-violet-200'}`}>
+
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide">Variant {idx + 1}</span>
+                <div className="flex items-center gap-2">
+                  {isDupe(v) && (
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-red-500">
+                      <AlertIco /> Duplicate combo
+                    </span>
+                  )}
+                  <button type="button" onClick={() => remove(v.id)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                    <TrashIcon />
+                  </button>
+                </div>
               </div>
-            ))}
-          </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 mb-1">Size</label>
+                  <select value={v.size} onChange={e => update(v.id, { size: e.target.value })}
+                    className="w-full text-sm border-2 border-gray-100 rounded-xl px-2.5 py-2 bg-white focus:border-violet-300 focus:outline-none transition-colors">
+                    <option value="">—</option>{sizes.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 mb-1">Color</label>
+                  <select value={v.color} onChange={e => update(v.id, { color: e.target.value })}
+                    className="w-full text-sm border-2 border-gray-100 rounded-xl px-2.5 py-2 bg-white focus:border-violet-300 focus:outline-none transition-colors">
+                    <option value="">—</option>{colors.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 mb-1">Price</label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">Rs.</span>
+                    <input type="number" min="0" value={v.price} onChange={e => update(v.id, { price: Number(e.target.value) })}
+                      className="w-full text-sm border-2 border-gray-100 rounded-xl pl-8 pr-2 py-2 focus:border-violet-300 focus:outline-none transition-colors" placeholder="0" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 mb-1">Cost</label>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">Rs.</span>
+                    <input type="number" min="0" value={v.actual_price ?? ''} onChange={e => update(v.id, { actual_price: e.target.value ? Number(e.target.value) : null })}
+                      className="w-full text-sm border-2 border-gray-100 rounded-xl pl-8 pr-2 py-2 focus:border-violet-300 focus:outline-none transition-colors" placeholder="0" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 mb-1">Stock</label>
+                  <input type="number" min="0" value={v.stock ?? ''} onChange={e => update(v.id, { stock: e.target.value ? Number(e.target.value) : null })}
+                    className="w-full text-sm border-2 border-gray-100 rounded-xl px-2.5 py-2 focus:border-violet-300 focus:outline-none transition-colors" placeholder="Qty" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -132,13 +213,13 @@ function ProductModal({ product, onClose, onSaved }: { product?: Product; onClos
   const isEdit = !!product;
   const [dbCategories, setDbCategories] = useState<{ label: string; value: string }[]>([]);
   useEffect(() => {
-    fetch('/api/categories').then(r => r.ok ? r.json() : []).then((data: any[]) => {
+    adminFetch('/api/categories').then(r => r.ok ? r.json() : []).then((data: any[]) => {
       if (Array.isArray(data) && data.length > 0) setDbCategories(data.filter(c => c.is_active).map(c => ({ label: c.label, value: c.value })));
     }).catch(() => {});
   }, []);
   const [festivalInfo, setFestivalInfo] = useState<{ enabled: boolean; label: string } | null>(null);
   useEffect(() => {
-    fetch('/api/settings').then(r => r.ok ? r.json() : null).then(s => {
+    adminFetch('/api/settings').then(r => r.ok ? r.json() : null).then(s => {
       if (s) setFestivalInfo({ enabled: !!s.festival_enabled, label: s.pk_festival_label || s.us_festival_label || '' });
     }).catch(() => {});
   }, []);
@@ -201,7 +282,7 @@ function ProductModal({ product, onClose, onSaved }: { product?: Product; onClos
     try {
       let imageUrls: string[] = isEdit && imageFiles.length === 0 ? (product?.images ?? []) : [];
       for (const file of imageFiles) {
-        const res = await fetch('/api/upload', {
+        const res = await adminFetch('/api/upload', {
           method: 'POST',
           headers: { 'x-file-name': `${Date.now()}_${sanitizeFileName(file.name)}`, 'x-file-type': file.type },
           body: file,
@@ -223,7 +304,7 @@ function ProductModal({ product, onClose, onSaved }: { product?: Product; onClos
         cj_vid: form.sourcing === 'cj' ? (form.cj_vid || null) : null,
         hhc_product_id: form.sourcing === 'hhc' ? (form.hhc_product_id || null) : null,
       };
-      const res = await fetch(isEdit ? `/api/products/${product!.id}` : '/api/products', {
+      const res = await adminFetch(isEdit ? `/api/products/${product!.id}` : '/api/products', {
         method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -242,14 +323,14 @@ function ProductModal({ product, onClose, onSaved }: { product?: Product; onClos
   return (
     <>
       <div className="fixed inset-0 bg-black/50 z-40 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto border border-gray-100">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-0 md:p-4">
+        <div className="bg-white rounded-none md:rounded-3xl shadow-2xl w-full max-w-lg h-full md:h-auto max-h-full md:max-h-[92vh] overflow-y-auto border border-gray-100">
           <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white rounded-t-3xl z-10">
             <div>
               <h2 className="text-lg font-black text-gray-900">{isEdit ? 'Edit Product' : 'Add New Product'}</h2>
               <p className="text-xs text-gray-400 mt-0.5">{isEdit ? 'Changes will be saved' : 'Will appear in your store'}</p>
             </div>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-500"><TrashIcon /></button>
+            <button onClick={onClose} className="w-11 h-11 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-500"><TrashIcon /></button>
           </div>
           <form onSubmit={submit} className="px-6 py-5 space-y-5">
 
@@ -321,7 +402,7 @@ function ProductModal({ product, onClose, onSaved }: { product?: Product; onClos
                 {[{ value: 'pk', label: '🇵🇰 Pakistan' },{ value: 'us', label: '🇺🇸 USA' },{ value: 'both', label: '🌍 Both' }].map(opt => (
                   <button key={opt.value} type="button"
                     onClick={() => setForm(p => ({ ...p, market_availability: opt.value as any }))}
-                    className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all ${form.market_availability === opt.value ? 'border-violet-500 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white' : 'border-gray-200 text-gray-600 hover:border-violet-300'}`}>
+                    className={`flex-1 px-3 py-2 rounded-xl text-xs font-bold border-2 transition-all ${form.market_availability === opt.value ? 'border-violet-500 bg-gradient-to-r from-violet-600 to-indigo-600 text-white' : 'border-gray-200 text-gray-600 hover:border-violet-300'}`}>
                     {opt.label}
                   </button>
                 ))}
@@ -334,7 +415,7 @@ function ProductModal({ product, onClose, onSaved }: { product?: Product; onClos
                 <FestIco />
                 <label className="text-sm font-semibold text-gray-700">Festival Sale</label>
                 {festivalInfo?.enabled && (
-                  <span className="text-xs bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-2 py-0.5 rounded-full font-bold">LIVE: {festivalInfo.label || 'Festival active'}</span>
+                  <span className="text-xs bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-2 py-0.5 rounded-full font-bold">LIVE: {festivalInfo.label || 'Festival active'}</span>
                 )}
               </div>
               <input name="festival_tag" value={form.festival_tag} onChange={handle}
@@ -390,23 +471,36 @@ function ProductModal({ product, onClose, onSaved }: { product?: Product; onClos
               <input name="sizes" value={form.sizes} onChange={handle} placeholder="S, M, L, XL, XXL" className={INPUT} />
             </div>
 
-            <div className="border-2 border-gray-100 rounded-2xl p-4">
-              <button type="button" onClick={() => setShowVariants(v => !v)} className="w-full flex items-center justify-between text-left">
-                <div className="flex items-center gap-2">
-                  <LayersIco />
+            {/* ── Variant pricing toggle — redesigned: bigger, high-contrast, animated ── */}
+            <div className={`rounded-2xl border-2 transition-colors duration-300 ${showVariants ? 'border-violet-200 bg-violet-50/40' : 'border-gray-100'}`}>
+              <button type="button" onClick={() => setShowVariants(v => !v)}
+                className="w-full flex items-center justify-between text-left px-4 py-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors duration-300 ${showVariants ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                    <LayersIco />
+                  </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-700">Different price per size/color</p>
+                    <p className="text-sm font-bold text-gray-800">Different price per size / color</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Turn on for Shopify-style variant pricing &amp; stock</p>
                   </div>
                 </div>
-                <span className={`w-10 h-5 rounded-full relative transition-colors shrink-0 ${showVariants ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600' : 'bg-gray-200'}`}>
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showVariants ? 'translate-x-5' : ''}`} />
+
+                <span
+                  role="switch"
+                  aria-checked={showVariants}
+                  className={`w-14 h-7 rounded-full relative transition-colors duration-300 shrink-0 ring-2 ring-offset-1 ${showVariants ? 'bg-gradient-to-r from-violet-600 to-indigo-600 ring-violet-200' : 'bg-gray-200 ring-gray-100'}`}
+                >
+                  <span className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ease-out ${showVariants ? 'translate-x-7' : ''}`} />
                 </span>
               </button>
-              {showVariants && (
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <VariantEditor variants={variants} setVariants={setVariants} sizes={sizeList} colors={form.colors} basePrice={form.price} baseActualPrice={form.actual_price} />
+
+              <div className={`grid transition-all duration-300 ease-out ${showVariants ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className="overflow-hidden">
+                  <div className="px-4 pb-4 pt-1 border-t border-violet-100">
+                    <VariantEditor variants={variants} setVariants={setVariants} sizes={sizeList} colors={form.colors} basePrice={form.price} baseActualPrice={form.actual_price} />
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
 
             <div>
@@ -431,7 +525,7 @@ function ProductModal({ product, onClose, onSaved }: { product?: Product; onClos
 
             <div className="flex gap-3 pt-2">
               <button type="button" onClick={onClose} className="flex-1 border-2 border-gray-200 text-gray-600 py-3 rounded-2xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
-              <button type="submit" disabled={saving} className="flex-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white py-3 rounded-2xl text-sm font-bold disabled:opacity-60">
+              <button type="submit" disabled={saving} className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 text-white py-3 rounded-2xl text-sm font-bold disabled:opacity-60">
                 {saving ? 'Saving...' : isEdit ? 'Update Product' : 'Add Product'}
               </button>
             </div>
@@ -442,6 +536,22 @@ function ProductModal({ product, onClose, onSaved }: { product?: Product; onClos
   );
 }
 
+// Approval status badge — pending/approved/rejected, same visual language as
+// the Suppliers page. Products without an approval_status (e.g. products
+// created directly by admin) are treated as 'approved' for display.
+function ApprovalBadge({ status }: { status: 'pending' | 'approved' | 'rejected' }) {
+  const map = {
+    approved: 'bg-green-100 text-green-700',
+    pending:  'bg-amber-100 text-amber-700',
+    rejected: 'bg-red-100 text-red-700',
+  };
+  return (
+    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${map[status]}`}>
+      {status}
+    </span>
+  );
+}
+
 // ── Main Products Manager ──
 export default function ProductsManager() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -449,11 +559,19 @@ export default function ProductsManager() {
   const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | undefined>();
+  // Approval filter — kept separate from supplier account approval (see
+  // SuppliersManager). Defaults to 'all' so existing product management
+  // behavior (seeing every product) doesn't change unless the admin filters.
+  const [approvalFilter, setApprovalFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [actioningId, setActioningId] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch('/api/products');
+      // ?all=1 is required so pending/rejected supplier-submitted products
+      // are visible here too, not just approved ones. The API only honors
+      // this flag for an admin session (see /api/products GET).
+      const res = await adminFetch('/api/products?all=1', { cache: 'no-store' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? 'Error loading data');
       setProducts(Array.isArray(data) ? data : []);
@@ -467,11 +585,67 @@ export default function ProductsManager() {
   const deleteItem = async (id: string) => {
     if (!confirm('Are you sure?')) return;
     try {
-      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/products/${id}`, { method: 'DELETE' });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message ?? 'Delete failed'); }
       fetchProducts();
     } catch (err: unknown) { alert(err instanceof Error ? err.message : 'Delete failed'); }
   };
+
+  // Approve/reject a product. This is intentionally independent of supplier
+  // account approval — approving a product here never touches the
+  // supplier's account status, and vice versa.
+  // Approve/reject a product. This is intentionally independent of supplier
+  // account approval — approving a product here never touches the
+  // supplier's account status, and vice versa.
+  //
+  // NOTE: the rejection-reason prompt() is now INSIDE the try/catch. If it
+  // was called before the try block, a blocked/failing dialog (common in
+  // sandboxed iframe previews) would throw silently and the whole action
+  // would appear to do nothing — no error, no update. Wrapping it fixes that.
+  const setApprovalStatus = async (id: string, approval_status: 'approved' | 'rejected') => {
+    setActioningId(id);
+    try {
+      let rejection_reason: string | undefined;
+      if (approval_status === 'rejected') {
+        rejection_reason = window.prompt('Reason for rejection (optional):') ?? undefined;
+      }
+      const res = await adminFetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, approval_status, rejection_reason }),
+      });
+      const ct = res.headers.get('content-type');
+      const data = ct?.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) throw new Error(typeof data === 'string' ? data : data?.error ?? data?.message ?? 'Failed to update status');
+      await fetchProducts();
+    } catch (err: unknown) {
+      console.error('Approval status update failed:', err);
+      alert(err instanceof Error ? err.message : 'Could not update approval status. Please try again.');
+    } finally { setActioningId(null); }
+  };
+
+  // Owner split — a product belongs to a supplier if it has a supplier_id
+  // or owner_type === 'merchant'; everything else is the admin's own stock.
+  const isSupplierProduct = (p: Product) => !!(p as any).supplier_id || (p as any).owner_type === 'merchant';
+
+  const [ownerFilter, setOwnerFilter] = useState<'all' | 'mine' | 'suppliers'>('all');
+
+  const approvalCounts = {
+    all: products.length,
+    pending: products.filter(p => ((p as any).approval_status ?? 'approved') === 'pending').length,
+    approved: products.filter(p => ((p as any).approval_status ?? 'approved') === 'approved').length,
+    rejected: products.filter(p => ((p as any).approval_status ?? 'approved') === 'rejected').length,
+  };
+
+  const ownerCounts = {
+    all: products.length,
+    mine: products.filter(p => !isSupplierProduct(p)).length,
+    suppliers: products.filter(p => isSupplierProduct(p)).length,
+  };
+
+  const visibleProducts = products
+    .filter(p => approvalFilter === 'all' || ((p as any).approval_status ?? 'approved') === approvalFilter)
+    .filter(p => ownerFilter === 'all' || (ownerFilter === 'mine' ? !isSupplierProduct(p) : isSupplierProduct(p)));
 
   return (
     <div>
@@ -481,12 +655,38 @@ export default function ProductsManager() {
           onSaved={fetchProducts} />
       )}
 
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <h1 className="text-xl font-black text-gray-900">Products</h1>
         <button onClick={() => setShowAddModal(true)}
-          className="bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-1.5">
+          className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-1.5">
           <PlusIcon /> Add Product
         </button>
+      </div>
+
+      <div className="flex gap-2 mb-3">
+        {([
+          { key: 'all', label: 'All Products' },
+          { key: 'mine', label: 'My Products' },
+          { key: 'suppliers', label: 'Supplier Products' },
+        ] as const).map(f => (
+          <button key={f.key} onClick={() => setOwnerFilter(f.key)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
+              ownerFilter === f.key ? 'bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}>
+            {f.label} <span className="opacity-70">({ownerCounts[f.key]})</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-2 mb-4">
+        {(['all', 'pending', 'approved', 'rejected'] as const).map(f => (
+          <button key={f} onClick={() => setApprovalFilter(f)}
+            className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-colors ${
+              approvalFilter === f ? 'bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}>
+            {f} <span className="opacity-70">({approvalCounts[f]})</span>
+          </button>
+        ))}
       </div>
 
       <div className="bg-white rounded-2xl border-2 border-gray-100 overflow-hidden">
@@ -501,27 +701,45 @@ export default function ProductsManager() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b-2 border-gray-100 sticky top-0 z-10">
                 <tr>
-                  {['Image','Name','Sell Price','Cost','Sourcing','Category','Actions'].map(h => (
+                  {['Image','Name','Sell Price','Cost','Sourcing','Category','Status','Actions'].map(h => (
                     <th key={h} className="text-left px-4 py-3.5 text-gray-500 font-semibold text-xs uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {products.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-20 text-gray-400">
-                    <p className="font-semibold">No products yet</p>
-                    <button onClick={() => setShowAddModal(true)} className="mt-3 text-violet-600 underline text-sm font-medium">Add your first product</button>
+                {visibleProducts.length === 0 ? (
+                  <tr><td colSpan={8} className="text-center py-20 text-gray-400">
+                    <p className="font-semibold">
+                      No products found for this filter
+                    </p>
+                    {approvalFilter === 'all' && ownerFilter === 'all' && (
+                      <button onClick={() => setShowAddModal(true)} className="mt-3 text-violet-600 underline text-sm font-medium">Add your first product</button>
+                    )}
                   </td></tr>
-                ) : products.map(p => {
+                ) : visibleProducts.map(p => {
                   const ap = (p as any).actual_price;
                   const cjVid = (p as any).cj_vid;
                   const hhcId = (p as any).hhc_product_id;
+                  const variantCount = (p as any).variants?.length ?? 0;
+                  const approvalStatus: 'pending' | 'approved' | 'rejected' = (p as any).approval_status ?? 'approved';
                   return (
                     <tr key={p.id} className="hover:bg-violet-50/30 transition-colors">
                       <td className="px-4 py-3.5">
                         {p.images?.[0] ? <img src={p.images[0]} alt={p.name} className="w-12 h-12 rounded-xl object-cover border border-gray-100" /> : <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-gray-300">📦</div>}
                       </td>
-                      <td className="px-4 py-3.5 font-semibold text-gray-800 max-w-40"><p className="truncate">{p.name}</p></td>
+                      <td className="px-4 py-3.5 font-semibold text-gray-800 max-w-40">
+                        <p className="truncate">{p.name}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {isSupplierProduct(p) ? (
+                            <span className="text-[11px] text-amber-600 font-semibold">
+                              Supplier{(p as any).merchant_name ? `: ${(p as any).merchant_name}` : ''}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-gray-400 font-medium">My Product</span>
+                          )}
+                          {variantCount > 0 && <span className="text-[11px] text-violet-500 font-semibold">· {variantCount} variants</span>}
+                        </div>
+                      </td>
                       <td className="px-4 py-3.5 font-bold text-violet-700 whitespace-nowrap">Rs. {Number(p.price).toLocaleString()}</td>
                       <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap">{ap != null ? `Rs. ${Number(ap).toLocaleString()}` : '—'}</td>
                       <td className="px-4 py-3.5">
@@ -531,9 +749,30 @@ export default function ProductsManager() {
                       </td>
                       <td className="px-4 py-3.5"><span className="text-xs bg-violet-100 text-violet-700 px-2.5 py-1 rounded-full font-semibold capitalize">{p.category}</span></td>
                       <td className="px-4 py-3.5">
-                        <div className="flex gap-2">
-                          <button onClick={() => setEditProduct(p)} className="text-violet-600 text-xs font-semibold bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition flex items-center gap-1"><EditIcon /> Edit</button>
-                          <button onClick={() => deleteItem(p.id)} className="text-red-500 text-xs font-semibold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition flex items-center gap-1"><TrashIcon /> Delete</button>
+                        <ApprovalBadge status={approvalStatus} />
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex gap-2">
+                            <button onClick={() => setEditProduct(p)} className="text-violet-600 text-xs font-semibold bg-violet-50 hover:bg-violet-100 px-3 py-1.5 rounded-lg transition flex items-center gap-1"><EditIcon /> Edit</button>
+                            <button onClick={() => deleteItem(p.id)} className="text-red-500 text-xs font-semibold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition flex items-center gap-1"><TrashIcon /> Delete</button>
+                          </div>
+                          {approvalStatus === 'pending' && (
+                            <div className="flex gap-2">
+                              <button onClick={() => setApprovalStatus(p.id, 'approved')} disabled={actioningId === p.id}
+                                className="flex-1 text-green-700 text-xs font-semibold bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-lg transition disabled:opacity-50">Approve</button>
+                              <button onClick={() => setApprovalStatus(p.id, 'rejected')} disabled={actioningId === p.id}
+                                className="flex-1 text-red-500 text-xs font-semibold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition disabled:opacity-50">Reject</button>
+                            </div>
+                          )}
+                          {approvalStatus === 'approved' && (
+                            <button onClick={() => setApprovalStatus(p.id, 'rejected')} disabled={actioningId === p.id}
+                              className="text-red-500 text-xs font-semibold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition disabled:opacity-50">Reject</button>
+                          )}
+                          {approvalStatus === 'rejected' && (
+                            <button onClick={() => setApprovalStatus(p.id, 'approved')} disabled={actioningId === p.id}
+                              className="text-green-700 text-xs font-semibold bg-green-50 hover:bg-green-100 px-3 py-1.5 rounded-lg transition disabled:opacity-50">Approve</button>
+                          )}
                         </div>
                       </td>
                     </tr>

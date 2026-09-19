@@ -10,8 +10,8 @@ interface OrderSuccessModalProps {
 
 export default function OrderSuccessModal({ isPK, onClose }: OrderSuccessModalProps) {
   const steps = [
-    'Order confirmed',
-    'Packaging will begin shortly',
+    'Order submitted for verification',
+    'Our team will verify your delivery details',
     'Delivery in 2–4 business days',
     isPK ? 'Pay the delivery person on arrival' : 'Payment collected online',
   ];
@@ -20,8 +20,8 @@ export default function OrderSuccessModal({ isPK, onClose }: OrderSuccessModalPr
     <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl p-10 max-w-sm w-full text-center shadow-2xl">
         <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5 text-4xl">✅</div>
-        <h1 className="text-3xl font-black text-green-600 mb-2">Order Placed!</h1>
-        <p className="text-gray-500 mb-6">Thank you for choosing MaestraVibe!</p>
+        <h1 className="text-2xl sm:text-3xl font-black text-green-600 mb-2">Order Pending Verification</h1>
+        <p className="text-gray-500 mb-6">Thank you for choosing MaestraVibe. We will confirm your order after verification.</p>
         <div className="bg-green-50 border border-green-100 rounded-2xl p-5 mb-6 text-left text-sm space-y-2 text-gray-700">
           {steps.map((s, i) => <p key={i} className="flex items-center gap-2"><CheckIco /> {s}</p>)}
         </div>

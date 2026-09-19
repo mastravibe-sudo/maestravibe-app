@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { adminFetch } from '@/lib/admin-fetch';
 
 type Account = {
   id: string;
@@ -60,7 +61,7 @@ export default function AccountsManager() {
   const fetchAccounts = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch('/api/accounts');
+      const res = await adminFetch('/api/accounts');
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? 'Failed to load accounts');
       setAccounts(Array.isArray(data) ? data : []);
@@ -73,7 +74,7 @@ export default function AccountsManager() {
 
   const updateStatus = async (id: string, status: Account['status']) => {
     try {
-      const res = await fetch(`/api/accounts/${id}`, {
+      const res = await adminFetch(`/api/accounts/${id}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       });
@@ -85,7 +86,7 @@ export default function AccountsManager() {
   const deleteAccount = async (id: string) => {
     if (!confirm('Delete this account permanently?')) return;
     try {
-      const res = await fetch(`/api/accounts/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/accounts/${id}`, { method: 'DELETE' });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message ?? 'Delete failed'); }
       fetchAccounts();
     } catch (err: unknown) { alert(err instanceof Error ? err.message : 'Delete failed'); }
@@ -97,7 +98,7 @@ export default function AccountsManager() {
     setWarningResult('');
     setHistoryLoading(true);
     try {
-      const res = await fetch(`/api/accounts/${account.id}/warn`);
+      const res = await adminFetch(`/api/accounts/${account.id}/warn`);
       const data = await res.json();
       setWarningHistory(Array.isArray(data) ? data : []);
     } catch {
@@ -112,7 +113,7 @@ export default function AccountsManager() {
     setSendingWarning(true);
     setWarningResult('');
     try {
-      const res = await fetch(`/api/accounts/${warningTarget.id}/warn`, {
+      const res = await adminFetch(`/api/accounts/${warningTarget.id}/warn`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: warningMessage }),
@@ -123,7 +124,7 @@ export default function AccountsManager() {
       setWarningMessage('');
       fetchAccounts();
       // refresh history
-      const histRes = await fetch(`/api/accounts/${warningTarget.id}/warn`);
+      const histRes = await adminFetch(`/api/accounts/${warningTarget.id}/warn`);
       const histData = await histRes.json();
       setWarningHistory(Array.isArray(histData) ? histData : []);
     } catch (err: unknown) {

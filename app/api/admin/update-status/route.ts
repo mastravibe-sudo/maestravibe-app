@@ -1,12 +1,10 @@
 // app/api/admin/update-status/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { getSession } from '@/lib/auth';
+import { createAdminClient } from '@/lib/supabase-admin';
+import { requireAdmin } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
-  const session = await getSession();
-  // Aap yahan check kar sakte ho ke sirf admin email hi ye action kar sake
-  if (!session || session.email !== process.env.ADMIN_EMAIL) {
+  if (!(await requireAdmin())) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 403 });
   }
 
@@ -15,7 +13,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: 'Invalid status' }, { status: 400 });
   }
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const supabase = createAdminClient();
   const { error } = await supabase.from('accounts').update({ status }).eq('id', accountId);
 
   if (error) return NextResponse.json({ success: false, message: error.message }, { status: 500 });

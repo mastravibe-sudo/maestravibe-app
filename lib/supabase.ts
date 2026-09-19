@@ -57,6 +57,18 @@ export interface Product {
   variants?: ProductVariant[];
   has_variants?: boolean;
 
+  // ── Supplier marketplace fields ──
+  // Present when this product belongs to a supplier (not in-house MaestraVibe
+  // stock). Used by CheckoutForm to attach the commission split to orders,
+  // and by the admin/supplier panels for approval + payout tracking.
+  supplier_id?: string;
+  approval_status?: 'pending' | 'approved' | 'rejected';
+  supplier_price?: number;         // what the supplier is paid per unit
+  commission_percent?: number;     // per-product override; falls back to supplier/global default
+  rejection_reason?: string | null;
+  approved_by?: string | null;
+  approved_at?: string | null;
+
   created_at?: string;
 }
 
@@ -82,6 +94,9 @@ export type OrderItem = {
   selectedSize?: string;
   image?: string;
   productId?: string;
+  // ── Supplier marketplace fields (see Product above) ──
+  supplier_id?: string | null;
+  supplier_price?: number | null;
 };
 
 export type Order = {
@@ -96,8 +111,19 @@ export type Order = {
   };
   items: OrderItem[];
   total: number;
-  status: 'new' | 'pending' | 'completed' | 'delivered';
+  status: 'pending_verification' | 'new' | 'pending' | 'accepted' | 'completed' | 'delivered';
   created_at: string;
+
+  // ── Supplier marketplace fields ──
+  // Populated only when every item in the order belongs to the same
+  // supplier — see app/api/orders/route.ts. Mixed-supplier orders leave
+  // these null; per-item splits still live inside `items`.
+  supplier_id?: string | null;
+  supplier_amount?: number | null;
+  commission_amount?: number | null;
+  reseller_profit?: number | null;
+  supplier_status?: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  supplier_paid?: boolean;
 };
 
 export type Subscriber = {

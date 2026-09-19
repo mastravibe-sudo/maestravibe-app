@@ -1,13 +1,7 @@
 // app/api/subscribers/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Missing Supabase environment variables');
-  return createClient(url, key);
-}
+import { createAdminClient } from '@/lib/supabase-admin';
+import { requireAdmin } from '@/lib/auth';
 
 // DELETE /api/subscribers/[id]
 export async function DELETE(
@@ -15,7 +9,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }  // Promise add kiya
 ) {
   try {
-    const supabase = getSupabase();
+    if (!(await requireAdmin())) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const supabase = createAdminClient();
     const { id } = await params;  // await add kiya
 
     const { error } = await supabase

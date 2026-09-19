@@ -25,7 +25,7 @@ export default function CartDrawer({
       <div className="bg-white w-full max-w-md h-full flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="p-5 border-b flex justify-between items-center bg-white">
           <h2 className="text-lg font-black text-gray-900">Your Cart <span className="text-violet-600">({cartCount} {cartCount === 1 ? 'item' : 'items'})</span></h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"><CloseIco /></button>
+          <button onClick={onClose} className="w-11 h-11 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600"><CloseIco /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {cart.length === 0 ? (
@@ -46,9 +46,9 @@ export default function CartDrawer({
                 </div>
                 <p className="font-black text-violet-700 text-sm mt-1">{formatPrice(item.price * item.quantity, market)}</p>
                 <div className="flex items-center gap-2 mt-2">
-                  <button onClick={() => onUpdateQuantity(index, x => ({ ...x, quantity: Math.max(1, x.quantity - 1) }))} className="w-7 h-7 border-2 rounded-lg text-sm font-bold hover:border-violet-400 transition-colors flex items-center justify-center text-gray-600">−</button>
+                  <button onClick={() => onUpdateQuantity(index, x => ({ ...x, quantity: Math.max(1, x.quantity - 1) }))} className="w-11 h-11 border-2 rounded-lg text-sm font-bold hover:border-violet-400 transition-colors flex items-center justify-center text-gray-600">−</button>
                   <span className="text-sm font-bold w-5 text-center">{item.quantity}</span>
-                  <button onClick={() => onUpdateQuantity(index, x => ({ ...x, quantity: x.quantity + 1 }))} className="w-7 h-7 border-2 rounded-lg text-sm font-bold hover:border-violet-400 transition-colors flex items-center justify-center text-gray-600">+</button>
+                  <button onClick={() => onUpdateQuantity(index, x => ({ ...x, quantity: x.quantity + 1 }))} className="w-11 h-11 border-2 rounded-lg text-sm font-bold hover:border-violet-400 transition-colors flex items-center justify-center text-gray-600">+</button>
                   <button onClick={() => onRemove(index)} className="text-red-400 text-xs ml-2 hover:text-red-600 font-semibold">Remove</button>
                 </div>
               </div>

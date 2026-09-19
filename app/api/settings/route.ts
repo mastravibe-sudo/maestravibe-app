@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Missing Supabase environment variables');
-  return createClient(url, key);
-}
+import { createAdminClient } from '@/lib/supabase-admin';
+import { createPublicClient } from '@/lib/supabase-public';
+import { requireAdmin } from '@/lib/auth';
 
 // GET /api/settings — returns the single settings row (creates it if missing)
 export async function GET() {
   try {
-    const supabase = getSupabase();
+    const supabase = createPublicClient();
 
     const { data, error } = await supabase
       .from('site_settings')
@@ -42,7 +37,8 @@ export async function GET() {
 // PATCH /api/settings — updates the single settings row
 export async function PATCH(req: NextRequest) {
   try {
-    const supabase = getSupabase();
+    if (!(await requireAdmin())) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const supabase = createAdminClient();
     const body = await req.json();
 
     // Never let the client overwrite the primary key

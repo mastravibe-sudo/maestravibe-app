@@ -1,9 +1,9 @@
 // components/home/FestivalBanner.tsx
 'use client';
 
-import { festivalGradient } from '@/lib/home/constants';
 import CountdownTimer from './CountdownTimer';
 import { FestIco } from './icons';
+import { themeGradientClass, themeTextClass } from '@/lib/home/theme-gradients';
 
 interface FestivalBannerProps {
   theme: string;
@@ -11,13 +11,26 @@ interface FestivalBannerProps {
   discount: number;
   endsAt: string;
   category: string;
+  image?: string;
   onNavigate: (cat: string) => void;
 }
 
-export default function FestivalBanner({ theme, label, discount, endsAt, category, onNavigate }: FestivalBannerProps) {
+export default function FestivalBanner({ theme, label, discount, endsAt, category, image, onNavigate }: FestivalBannerProps) {
+  const gradient = themeGradientClass(theme);
+  const textClass = themeTextClass(theme);
+
   return (
-    <section className={`bg-gradient-to-r ${festivalGradient(theme)} py-5`}>
-      <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
+    <section className={`relative overflow-hidden bg-gradient-to-r ${gradient} py-5`}>
+      {image && (
+        <>
+          <div
+            className="absolute inset-0 bg-cover bg-center opacity-30"
+            style={{ backgroundImage: `url(${image})` }}
+          />
+          <div className={`absolute inset-0 bg-gradient-to-r ${gradient} opacity-70`} />
+        </>
+      )}
+      <div className="relative max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="bg-white/20 rounded-xl p-2.5"><FestIco /></div>
           <div>
@@ -32,7 +45,12 @@ export default function FestivalBanner({ theme, label, discount, endsAt, categor
             <p className="text-white/70 text-xs mb-1 font-medium">Ends in</p>
             <CountdownTimer endsAt={endsAt} dark={false} />
           </div>
-          <button onClick={() => onNavigate(category)} className="bg-white text-gray-900 px-6 py-2.5 rounded-xl font-black text-sm hover:bg-gray-50 transition-colors shadow-lg shrink-0">Shop Now →</button>
+          <button
+            onClick={() => onNavigate(category)}
+            className={`bg-white ${textClass} px-6 py-2.5 rounded-xl font-black text-sm hover:opacity-90 transition-opacity shadow-lg shrink-0`}
+          >
+            Shop Now →
+          </button>
         </div>
       </div>
     </section>

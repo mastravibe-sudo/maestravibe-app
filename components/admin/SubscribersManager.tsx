@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { Subscriber } from '@/lib/supabase';
 import { SpinnerIcon, TrashIcon, EmailIcon, CloseIcon } from './shared';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Bulk Email Modal ──
 function BulkEmailModal({ subscribers, onClose }: { subscribers: Subscriber[]; onClose: () => void }) {
@@ -16,7 +17,7 @@ function BulkEmailModal({ subscribers, onClose }: { subscribers: Subscriber[]; o
     if (!subject || !body) return;
     setSending(true);
     try {
-      const res = await fetch('/api/email/bulk', {
+      const res = await adminFetch('/api/email/bulk', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subject, body, emails: subscribers.map(s => s.email) }),
       });
@@ -84,7 +85,7 @@ export default function SubscribersManager() {
   const fetchSubscribers = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch('/api/subscribers');
+      const res = await adminFetch('/api/subscribers');
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? 'Error loading data');
       setSubscribers(Array.isArray(data) ? data : []);
@@ -98,7 +99,7 @@ export default function SubscribersManager() {
   const deleteItem = async (id: string) => {
     if (!confirm('Are you sure?')) return;
     try {
-      const res = await fetch(`/api/subscribers/${id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/subscribers/${id}`, { method: 'DELETE' });
       if (!res.ok) { const d = await res.json(); throw new Error(d.message ?? 'Delete failed'); }
       fetchSubscribers();
     } catch (err: unknown) { alert(err instanceof Error ? err.message : 'Delete failed'); }
@@ -118,7 +119,7 @@ export default function SubscribersManager() {
         )}
       </div>
 
-      <div className="bg-white rounded-2xl border-2 border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl border-2 border-gray-100 overflow-x-auto">
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400">
             <SpinnerIcon /><p className="text-sm font-medium mt-3">Loading...</p>

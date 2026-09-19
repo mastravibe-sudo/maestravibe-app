@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminPassword } from "@/lib/admin-auth";
+import jwt from 'jsonwebtoken';
 
 // Rate limiting: store login attempts
 const loginAttempts = new Map<string, { count: number; resetTime: number }>();
@@ -69,18 +70,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ Create secure session cookie
-    const response = NextResponse.json({
-      success: true,
-      message: "Login successful",
-    });
+    // Create a JWT session cookie compatible with `lib/auth.ts`'s
+    // `getSession()` utility. We sign a small payload with role: 'admin'.
+    const token = jwt.sign(
+      { id: 'admin', email: 'admin@localhost', role: 'admin' },
+      process.env.JWT_SECRET!,
+      { expiresIn: '1d' }
+    );
 
-    response.cookies.set("admin_session", "authenticated", {
+    const response = NextResponse.json({ success: true, message: 'Login successful' });
+    response.cookies.set('session', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24, // 24 hours
-      path: "/",
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24,
+      path: '/',
     });
 
     return response;
@@ -97,12 +101,12 @@ export async function DELETE(req: NextRequest) {
       message: "Logout successful",
     });
 
-    response.cookies.set("admin_session", "", {
+    response.cookies.set('session', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge: 0, // Immediately expire
-      path: "/",
+      path: '/',
     });
 
     return response;

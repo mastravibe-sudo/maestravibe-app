@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminLogin() {
@@ -7,6 +7,12 @@ export default function AdminLogin() {
   const [error,    setError]    = useState('');
   const [loading,  setLoading]  = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('reason') === 'session-expired') {
+      setError('Your admin session expired. Please sign in again.');
+    }
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();

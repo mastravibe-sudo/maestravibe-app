@@ -14,7 +14,8 @@ import {
   effectivePrice, loadCart, loadRecentlyViewed, loadWish,
   playSound, saveCart, saveRecentlyViewed, saveWish,
 } from '@/lib/home/helpers';
-import type { CmsBanner, CmsCategory, CustomerInfo, SiteSettings, Slide } from '@/lib/home/types';
+import { calculateDeliveryCharge } from '@/lib/home/delivery'; // ✅ NEW
+import type { CmsBanner, CmsCategory, CustomerInfo, DetectedLocation, SiteSettings, Slide } from '@/lib/home/types';
 
 import CartDrawer from '@/components/home/CartDrawer';
 import CategoriesSection from '@/components/home/CategoriesSection';
@@ -22,6 +23,7 @@ import CheckoutFlow from '@/components/home/CheckoutFlow';
 import FestivalBanner from '@/components/home/FestivalBanner';
 import FlashSaleBanner from '@/components/home/FlashSaleBanner';
 import HeroSlider from '@/components/home/HeroSlider';
+import HeroBackground from '@/components/home/HeroBackground';
 import MobileNav from '@/components/home/MobileNav';
 import NewsletterSection from '@/components/home/NewsletterSection';
 import OrderSuccessModal from '@/components/home/OrderSuccessModal';
@@ -103,7 +105,13 @@ export default function HomePage({
   const [locationLoading, setLocationLoading] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({ name: '', email: '', phone: '', address: '', city: '', area: '' });
+  const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
+    name: '', email: '', phone: '', address: '', city: '', area: '',
+    district: '', block: '', locationLink: undefined, lat: undefined, lng: undefined,
+  });
+  // ✅ NEW: a just-detected GPS location, held here until the customer
+  // explicitly confirms it before it's written into customerInfo.
+  const [pendingLocation, setPendingLocation] = useState<DetectedLocation | null>(null);
 
   // ── Init ──
   useEffect(() => {
@@ -223,6 +231,14 @@ export default function HomePage({
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const currentCartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
+  // ✅ NEW: delivery charge, computed live from the customer's city + order
+  // subtotal, and the grand total that actually gets charged/shown/submitted.
+  const deliveryCharge = useMemo(() => {
+    const freeMin = parseFloat(String(marketCfg.freeDeliveryMin).replace(/,/g, '')) || 0;
+    return calculateDeliveryCharge(market, customerInfo.city, orderTotal, freeMin);
+  }, [market, customerInfo.city, orderTotal, marketCfg.freeDeliveryMin]);
+  const grandTotal = orderTotal + deliveryCharge;
+
   const featured = useMemo(() => allProducts.slice(0, 8), [allProducts]);
   const newArrivals = useMemo(() => [...allProducts].reverse().slice(0, 8), [allProducts]);
   const trendingNow = useMemo(() => (
@@ -235,11 +251,46 @@ export default function HomePage({
   const showFlashSale = siteSettings.flash_sale_enabled;
   const showFestival  = siteSettings.festival_enabled;
 
+  // ── Market-specific Flash Sale fields (fall back to legacy shared fields
+  // so nothing breaks if /api/settings hasn't been updated yet) ──
+  const flashSaleDiscount = isPK
+    ? (siteSettings.flash_sale_discount_pk ?? siteSettings.flash_sale_discount)
+    : (siteSettings.flash_sale_discount_us ?? siteSettings.flash_sale_discount);
+  const flashSaleEndsAt = isPK
+    ? (siteSettings.flash_sale_ends_at_pk ?? siteSettings.flash_sale_ends_at)
+    : (siteSettings.flash_sale_ends_at_us ?? siteSettings.flash_sale_ends_at);
+  const flashSaleCategory = isPK
+    ? (siteSettings.flash_sale_category_pk ?? siteSettings.flash_sale_category)
+    : (siteSettings.flash_sale_category_us ?? siteSettings.flash_sale_category);
+  const flashSaleTheme = isPK
+    ? siteSettings.flash_sale_theme_pk
+    : siteSettings.flash_sale_theme_us;
+  const flashSaleLabel = isPK
+    ? siteSettings.flash_sale_label_pk
+    : siteSettings.flash_sale_label_us;
+  const flashSaleImage = isPK
+    ? siteSettings.flash_sale_image_pk
+    : siteSettings.flash_sale_image_us;
+
+  // ── Market-specific Festival fields ──
+  const festivalDiscount = isPK
+    ? (siteSettings.festival_discount_pk ?? siteSettings.festival_discount)
+    : (siteSettings.festival_discount_us ?? siteSettings.festival_discount);
+  const festivalEndsAt = isPK
+    ? (siteSettings.festival_ends_at_pk ?? siteSettings.festival_ends_at)
+    : (siteSettings.festival_ends_at_us ?? siteSettings.festival_ends_at);
+  const festivalCategory = isPK
+    ? (siteSettings.festival_category_pk ?? siteSettings.festival_category)
+    : (siteSettings.festival_category_us ?? siteSettings.festival_category);
+  const festivalImage = isPK
+    ? siteSettings.festival_image_pk
+    : siteSettings.festival_image_us;
+
   const festivalProducts = useMemo(() => (
     showFestival
-      ? allProducts.filter(p => p.festival_tag && p.festival_tag === siteSettings.festival_category).slice(0, 8)
+      ? allProducts.filter(p => p.festival_tag && p.festival_tag === festivalCategory).slice(0, 8)
       : []
-  ), [showFestival, allProducts, siteSettings.festival_category]);
+  ), [showFestival, allProducts, festivalCategory]);
 
   const activeFiltersCount = (priceMin || priceMax ? 1 : 0) + (selectedColors.length ? 1 : 0) + (selectedSizes.length ? 1 : 0);
 
@@ -323,6 +374,30 @@ export default function HomePage({
 
   const toggleWish = (id: string) => setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
+  // ✅ FIXED (round 2): a single zoom=18 call to Nominatim isn't reliable for
+  // Pakistani addresses — the "city" tag is often missing at building-level,
+  // so the code fell back to whatever was in `county` (frequently a tehsil
+  // name like "Model Town Tehsil", not the actual city), and in some replies
+  // a numeric postcode ends up in a field it shouldn't. Free OSM data for PK
+  // just isn't consistently tagged — no fallback chain alone fixes that.
+  //
+  // Fix (still 100% free, no API key): query Nominatim TWICE at different
+  // zoom levels for the same coordinate —
+  //   • zoom=10 ("city" resolution per Nominatim's docs) → asks specifically
+  //     for the enclosing city/district boundary, which is far more reliably
+  //     tagged than relying on a building-level point's inherited tags.
+  //   • zoom=18 (building resolution) → gives the accurate street/area/
+  //     house-number breakdown.
+  // Plus a defensive filter so a stray postcode (e.g. "54000") can never
+  // land in City/Area/District/Block.
+  //
+  // Nothing is written into customerInfo yet — the result sits in
+  // `pendingLocation` until the customer confirms it (see
+  // confirmDetectedLocation / dismissDetectedLocation below), and we build a
+  // live Google Maps link from the exact GPS coordinates for the rider.
+  const looksLikePostcode = (v: string) => /^\d{4,6}$/.test(v.trim());
+  const clean = (v: string) => (v && !looksLikePostcode(v) ? v : '');
+
   const detectLocation = () => {
     if (!navigator.geolocation) { alert('Location not supported.'); return; }
     setLocationLoading(true);
@@ -330,22 +405,60 @@ export default function HomePage({
       async pos => {
         try {
           const { latitude, longitude } = pos.coords;
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
-          const data = await res.json();
-          const addr = data.address;
-          setCustomerInfo(prev => ({
-            ...prev,
-            city: addr.city || addr.town || addr.village || addr.state_district || '',
-            area: addr.neighbourhood || addr.suburb || addr.road || '',
-            address: [addr.road, addr.neighbourhood || addr.suburb, addr.city || addr.town].filter(Boolean).join(', ') || prev.address,
-          }));
-        } catch { alert('Location detection failed. Please fill manually.'); }
-        finally { setLocationLoading(false); }
+
+          const [detailRes, cityRes] = await Promise.all([
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&zoom=18`),
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1&zoom=10`),
+          ]);
+          const detailData = await detailRes.json();
+          const cityData = await cityRes.json();
+          const detailAddr = detailData.address || {};
+          const cityAddr = cityData.address || {};
+
+          const city = clean(
+            cityAddr.city || cityAddr.town || cityAddr.municipality || cityAddr.county ||
+            detailAddr.city || detailAddr.town || detailAddr.county || ''
+          );
+          const district = clean(
+            cityAddr.state_district || cityAddr.county || detailAddr.state_district || city
+          );
+          const area = clean(
+            detailAddr.suburb || detailAddr.neighbourhood || detailAddr.quarter || detailAddr.village || ''
+          );
+          const address = [detailAddr.house_number, detailAddr.road, area].filter(Boolean).join(', ') || detailData.display_name || '';
+          const locationLink = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+
+          setPendingLocation({ city, area, district, address, locationLink, lat: latitude, lng: longitude });
+        } catch {
+          alert('Location detection failed. Please fill manually.');
+        } finally {
+          setLocationLoading(false);
+        }
       },
       () => { setLocationLoading(false); alert('Location permission denied.'); },
       { timeout: 10000, enableHighAccuracy: true },
     );
   };
+
+  // ✅ NEW: customer explicitly agreed "yes, deliver here" — now it's safe
+  // to write the detected fields (incl. the live map link) into the form.
+  const confirmDetectedLocation = () => {
+    if (!pendingLocation) return;
+    setCustomerInfo(prev => ({
+      ...prev,
+      city: pendingLocation.city,
+      area: pendingLocation.area,
+      district: pendingLocation.district,
+      address: pendingLocation.address || prev.address,
+      locationLink: pendingLocation.locationLink,
+      lat: pendingLocation.lat,
+      lng: pendingLocation.lng,
+    }));
+    setPendingLocation(null);
+  };
+
+  // ✅ NEW: customer wants to fill it manually instead — discard the detection.
+  const dismissDetectedLocation = () => setPendingLocation(null);
 
   const submitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -361,13 +474,26 @@ export default function HomePage({
             quantity: item.quantity || 1, selectedColor: item.selectedColor,
             selectedSize: item.selectedSize, image: item.images?.[0] ?? '',
           })),
-          total: orderTotal, status: 'new',
+          // ✅ NEW: subtotal / deliveryCharge broken out, `total` is now the
+          // grand total (subtotal + delivery) actually charged to the customer.
+          subtotal: orderTotal,
+          deliveryCharge,
+          total: grandTotal,
+          status: 'new',
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).message || 'Order failed');
+      const responseData = await res.json();
+      if (!res.ok) {
+        const fields = responseData.fieldErrors ? Object.entries(responseData.fieldErrors).map(([field, message]) => `${field}: ${message}`).join(' ') : '';
+        throw new Error(fields || responseData.message || 'Order failed');
+      }
       playSound();
       setShowCheckout(false); setCheckoutProduct(null); setCart([]);
-      setCustomerInfo({ name: '', email: '', phone: '', address: '', city: '', area: '' });
+      setCustomerInfo({
+        name: '', email: '', phone: '', address: '', city: '', area: '',
+        district: '', block: '', locationLink: undefined, lat: undefined, lng: undefined,
+      });
+      setPendingLocation(null);
       setShowSuccess(true);
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : 'Order failed'}`);
@@ -423,7 +549,7 @@ export default function HomePage({
   return (
     <main className="bg-gray-50 text-gray-900 min-h-screen">
 
-      <div className="bg-gradient-to-r from-violet-700 to-purple-800 text-white text-center text-xs py-2 font-medium tracking-wide">
+      <div className="bg-gradient-to-r from-violet-600 to-indigo-700 text-white text-center text-xs py-2 font-medium tracking-wide">
         {isPK
           ? (siteSettings.pk_banner_title || DEFAULT_SETTINGS.pk_banner_title)
           : (siteSettings.us_banner_title || DEFAULT_SETTINGS.us_banner_title)
@@ -444,7 +570,13 @@ export default function HomePage({
             </div>
           </div>
 
-          <HeroSlider slides={slides} currentSlide={currentSlide} setCurrentSlide={setCurrentSlide} onNavigate={navigateTo} />
+          {/* Hero — wrapped with the animated 3D background, slider content sits above it */}
+          <div className="relative">
+            <HeroBackground />
+            <div className="relative z-10">
+              <HeroSlider slides={slides} currentSlide={currentSlide} setCurrentSlide={setCurrentSlide} onNavigate={navigateTo} />
+            </div>
+          </div>
 
           {/* TRUST STRIP */}
           <section className="bg-white border-y border-gray-100">
@@ -467,9 +599,12 @@ export default function HomePage({
 
           {showFlashSale && (
             <FlashSaleBanner
-              discount={siteSettings.flash_sale_discount}
-              endsAt={siteSettings.flash_sale_ends_at}
-              category={siteSettings.flash_sale_category}
+              discount={flashSaleDiscount}
+              endsAt={flashSaleEndsAt}
+              category={flashSaleCategory}
+              theme={flashSaleTheme}
+              label={flashSaleLabel}
+              image={flashSaleImage}
               onNavigate={navigateTo}
             />
           )}
@@ -478,24 +613,25 @@ export default function HomePage({
             <FestivalBanner
               theme={isPK ? siteSettings.festival_theme_pk : siteSettings.festival_theme_us}
               label={isPK ? siteSettings.pk_festival_label : siteSettings.us_festival_label}
-              discount={siteSettings.festival_discount}
-              endsAt={siteSettings.festival_ends_at}
-              category={siteSettings.festival_category}
+              discount={festivalDiscount}
+              endsAt={festivalEndsAt}
+              category={festivalCategory}
+              image={festivalImage}
               onNavigate={navigateTo}
             />
           )}
 
           {!productsLoading && festivalProducts.length > 0 && (
-            <section className="py-10 bg-gradient-to-b from-rose-50/40 to-white border-t border-gray-100">
+            <section className="py-10 bg-gradient-to-b from-violet-50/40 to-white border-t border-gray-100">
               <div className="max-w-7xl mx-auto px-4">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <p className="text-xs font-bold text-rose-600 uppercase tracking-widest mb-1">Limited time</p>
+                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-1">Limited time</p>
                     <h2 className="text-2xl font-black text-gray-800">
                       {(isPK ? siteSettings.pk_festival_label : siteSettings.us_festival_label) || 'Festival Picks'}
                     </h2>
                   </div>
-                  <button onClick={() => navigateTo(siteSettings.festival_category)} className="text-sm text-rose-600 font-semibold hover:underline">View All →</button>
+                  <button onClick={() => navigateTo(festivalCategory)} className="text-sm text-indigo-600 font-semibold hover:underline">View All →</button>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                   {festivalProducts.map((p: any, idx: number) => (
@@ -559,13 +695,13 @@ export default function HomePage({
             <div className="grid md:grid-cols-2 gap-5">
               <div onClick={() => navigateTo('women')} className="relative cursor-pointer rounded-3xl overflow-hidden group" style={{ height: '200px' }}>
                 <img src="https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=800&auto=format&fit=crop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Women's Collection" loading="lazy" decoding="async" />
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-900/70 to-purple-900/20" />
-                <div className="absolute inset-0 flex items-center px-8"><div><p className="text-purple-200 text-xs font-bold uppercase tracking-widest">New Arrivals</p><h3 className="text-white text-3xl font-black">Women's Collection</h3><button className="mt-3 bg-white text-purple-700 px-5 py-2 rounded-xl text-sm font-bold hover:bg-purple-50 transition-colors">Shop Now</button></div></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-violet-900/70 to-violet-900/20" />
+                <div className="absolute inset-0 flex items-center px-8"><div><p className="text-violet-200 text-xs font-bold uppercase tracking-widest">New Arrivals</p><h3 className="text-white text-3xl font-black">Women's Collection</h3><button className="mt-3 bg-white text-violet-700 px-5 py-2 rounded-xl text-sm font-bold hover:bg-violet-50 transition-colors">Shop Now</button></div></div>
               </div>
               <div onClick={() => navigateTo('men')} className="relative cursor-pointer rounded-3xl overflow-hidden group" style={{ height: '200px' }}>
                 <img src="https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?w=800&auto=format&fit=crop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Men's Styles" loading="lazy" decoding="async" />
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-900/70 to-gray-900/20" />
-                <div className="absolute inset-0 flex items-center px-8"><div><p className="text-gray-300 text-xs font-bold uppercase tracking-widest">Trending</p><h3 className="text-white text-3xl font-black">Men's Styles</h3><button className="mt-3 bg-white text-gray-900 px-5 py-2 rounded-xl text-sm font-bold hover:bg-gray-100 transition-colors">Shop Now</button></div></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/70 to-indigo-900/20" />
+                <div className="absolute inset-0 flex items-center px-8"><div><p className="text-indigo-200 text-xs font-bold uppercase tracking-widest">Trending</p><h3 className="text-white text-3xl font-black">Men's Styles</h3><button className="mt-3 bg-white text-indigo-700 px-5 py-2 rounded-xl text-sm font-bold hover:bg-indigo-50 transition-colors">Shop Now</button></div></div>
               </div>
             </div>
           </section>
@@ -594,7 +730,7 @@ export default function HomePage({
               <p className="text-violet-600 text-xs font-bold uppercase tracking-widest mb-2">MaestraVibe</p>
               <h2 className="text-3xl md:text-5xl font-black text-gray-900 mb-3">Explore All Products</h2>
               <p className="text-gray-500 mb-8">Thousands of products — fashion to accessories — all in one place</p>
-              <button onClick={() => navigateTo()} className="bg-violet-600 text-white px-12 py-4 rounded-xl font-black text-base hover:bg-violet-700 transition-all active:scale-95 shadow-xl shadow-violet-200">Start Shopping →</button>
+              <button onClick={() => navigateTo()} className="bg-gradient-to-r from-violet-600 to-indigo-700 hover:from-violet-700 hover:to-indigo-800 text-white px-12 py-4 rounded-xl font-black text-base transition-all active:scale-95 shadow-xl shadow-violet-300">Start Shopping →</button>
             </div>
           </section>
 
@@ -681,16 +817,26 @@ export default function HomePage({
           checkoutStep={checkoutStep}
           checkoutItems={checkoutItems}
           orderTotal={orderTotal}
+          deliveryCharge={deliveryCharge}
+          grandTotal={grandTotal}
           market={market}
           marketCfg={marketCfg}
           isPK={isPK}
           customerInfo={customerInfo}
+          pendingLocation={pendingLocation}
           locationLoading={locationLoading}
           orderLoading={orderLoading}
-          onBack={() => checkoutStep === 2 ? setCheckoutStep(1) : (setShowCheckout(false), setCheckoutProduct(null))}
-          onClose={() => { setShowCheckout(false); setCheckoutProduct(null); }}
+          onBack={() => {
+            if (checkoutStep === 3) { setCheckoutStep(2); return; }
+            if (checkoutStep === 2) { setCheckoutStep(1); return; }
+            setShowCheckout(false); setCheckoutProduct(null);
+          }}
+          onClose={() => { setShowCheckout(false); setCheckoutProduct(null); setPendingLocation(null); }}
           onContinueToDelivery={() => setCheckoutStep(2)}
+          onContinueToConfirm={() => setCheckoutStep(3)}
           onDetectLocation={detectLocation}
+          onConfirmLocation={confirmDetectedLocation}
+          onDismissLocation={dismissDetectedLocation}
           onCustomerInfoChange={setCustomerInfo}
           onSubmit={submitOrder}
         />

@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { SpinnerIcon } from './shared';
+import { adminFetch } from '@/lib/admin-fetch';
 
 type Product = {
   id: string; name: string; images: string[]; cj_vid?: string; hhc_product_id?: string;
@@ -17,7 +18,7 @@ export default function CJManager() {
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/products');
+      const res = await adminFetch('/api/products');
       const data = await res.json();
       setProducts(Array.isArray(data) ? data : []);
     } finally { setLoading(false); }
@@ -28,7 +29,7 @@ export default function CJManager() {
   const saveVid = async (productId: string) => {
     setSaving(productId);
     try {
-      await fetch(`/api/products/${productId}`, {
+      await adminFetch(`/api/products/${productId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cj_vid: editValues[productId] || null }),
@@ -70,7 +71,7 @@ export default function CJManager() {
         </p>
       </div>
 
-      <div className="bg-white rounded-2xl border-2 border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl border-2 border-gray-100 overflow-x-auto">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400"><SpinnerIcon /></div>
         ) : (

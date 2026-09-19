@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createPublicClient } from '@/lib/supabase-public';
 import bcrypt from 'bcryptjs';
+import { validateAccountDetails } from '@/lib/order-validation';
 
 function getSupabase() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return createPublicClient();
 }
 
 function validateBankAccount(bankType: string, accountNumber: string): string | null {
@@ -40,12 +41,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Password must be at least 6 characters' }, { status: 400 });
     }
 
-    // Phone number validation (Pakistani format)
-    const cleanPhone = String(phone).replace(/[\s-]/g, '');
-    const phoneRegex = /^(\+92|0)?3\d{9}$/;
-    if (!phoneRegex.test(cleanPhone)) {
-      return NextResponse.json({ success: false, message: 'Please enter a valid Pakistani phone number (e.g. 03XX-XXXXXXX)' }, { status: 400 });
+    const identityValidation = validateAccountDetails({ name, phone, address }, 'pk');
+    if (!identityValidation.valid) {
+      return NextResponse.json({ success: false, message: 'Please correct your account details.', fieldErrors: identityValidation.fieldErrors }, { status: 400 });
     }
+    const cleanPhone = identityValidation.normalized.phone;
+    const cleanName = identityValidation.normalized.name;
+    const cleanAddress = identityValidation.normalized.address;
 
     // Age validation
     const ageNum = Number(age);
@@ -83,7 +85,7 @@ export async function POST(req: NextRequest) {
     const { data, error } = await supabase
       .from('accounts')
       .insert([{
-        email: normalized, name, role, phone: cleanPhone, age: ageNum, address, website: website || '',
+        email: normalized, name: cleanName, role, phone: cleanPhone, age: ageNum, address: cleanAddress, website: website || '',
         bank_type, bank_name, bank_account_title, bank_account_number,
         password_hash, status, terms_accepted: true,
       }])

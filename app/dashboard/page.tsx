@@ -3,6 +3,8 @@
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { PK_CITIES } from '@/lib/order-validation';
+import { resellerFetch } from '@/lib/reseller-fetch';
 
 type Product = {
   id: string; name: string; price: number; category: string; description?: string;
@@ -87,7 +89,7 @@ export default function ResellerDashboard() {
   const [result, setResult] = useState('');
 
   useEffect(() => {
-    fetch('/api/reseller/products')
+    resellerFetch('/api/reseller/products')
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setProducts(data); else setError(data.message || 'Failed to load'); })
       .catch(() => setError('Failed to load products'));
@@ -103,7 +105,7 @@ export default function ResellerDashboard() {
   useEffect(() => { setVisibleCount(16); }, [search, categoryFilter, sortBy]);
 
   const loadOrders = useCallback(() => {
-    fetch('/api/reseller/orders').then(r => r.json()).then(data => { if (Array.isArray(data)) setOrders(data); });
+    resellerFetch('/api/reseller/orders').then(r => r.json()).then(data => { if (Array.isArray(data)) setOrders(data); });
   }, []);
   useEffect(() => { if (tab === 'orders') loadOrders(); }, [tab, loadOrders]);
 
@@ -145,12 +147,15 @@ export default function ResellerDashboard() {
     }
     setSubmitting(true); setResult('');
     try {
-      const res = await fetch('/api/reseller/create-order', {
+      const res = await resellerFetch('/api/reseller/create-order', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items: orderItems, customer }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
+      if (!res.ok) {
+        const fields = data.fieldErrors ? Object.entries(data.fieldErrors).map(([field, message]) => `${field}: ${message}`).join(' ') : '';
+        throw new Error(fields || data.message || 'Failed to submit order');
+      }
       setResult('Order submitted successfully!');
       setOrderItems([]); setCustomer({ name: '', phone: '', address: '', city: '' });
       setShowOrderForm(false); loadOrders(); setTab('orders');
@@ -499,7 +504,17 @@ export default function ResellerDashboard() {
           <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowOrderForm(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 text-gray-900">
-              <h2 className="text-lg font-black mb-4 text-gray-900">Create Order</h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-black text-gray-900">Create Order</h2>
+                <button
+                  type="button"
+                  onClick={() => setShowOrderForm(false)}
+                  aria-label="Close"
+                  className="w-8 h-8 shrink-0 flex items-center justify-center rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600"
+                >
+                  <CloseIco />
+                </button>
+              </div>
               {orderItems.map(item => (
                 <div key={item.productId} className="flex items-center gap-2 border-b border-gray-100 py-3">
                   {item.image && <img src={item.image} className="w-12 h-12 rounded-lg object-cover" loading="lazy" decoding="async" />}
@@ -527,9 +542,12 @@ export default function ResellerDashboard() {
                 <input placeholder="Phone" value={customer.phone}
                   onChange={e => setCustomer({ ...customer, phone: e.target.value })}
                   className="w-full border rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400" />
-                <input placeholder="City" value={customer.city}
+                <select value={customer.city}
                   onChange={e => setCustomer({ ...customer, city: e.target.value })}
-                  className="w-full border rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400" />
+                  className="w-full border rounded-xl px-3 py-2 text-sm text-gray-900">
+                  <option value="">Select customer city</option>
+                  {PK_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+                </select>
                 <textarea placeholder="Address" value={customer.address}
                   onChange={e => setCustomer({ ...customer, address: e.target.value })}
                   className="w-full border rounded-xl px-3 py-2 text-sm text-gray-900 placeholder-gray-400" rows={2} />
@@ -539,10 +557,19 @@ export default function ResellerDashboard() {
                   {result}
                 </p>
               )}
-              <button onClick={submitOrder} disabled={submitting}
-                className="w-full mt-4 bg-violet-600 text-white py-3 rounded-2xl font-bold disabled:opacity-60">
-                {submitting ? 'Submitting...' : 'Submit Order'}
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowOrderForm(false)}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-2xl font-bold transition-colors"
+                >
+                  Back
+                </button>
+                <button onClick={submitOrder} disabled={submitting}
+                  className="flex-1 bg-violet-600 text-white py-3 rounded-2xl font-bold disabled:opacity-60">
+                  {submitting ? 'Submitting...' : 'Submit Order'}
+                </button>
+              </div>
             </div>
           </div>
         </>
@@ -598,7 +625,7 @@ function WalletSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/reseller/orders')
+    resellerFetch('/api/reseller/orders')
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setOrders(data); })
       .finally(() => setLoading(false));
@@ -682,7 +709,7 @@ function ProfileSettings() {
   const [profileSubTab, setProfileSubTab] = useState<'account' | 'wallet'>('account');
 
   useEffect(() => {
-    fetch('/api/reseller/me')
+    resellerFetch('/api/reseller/me')
       .then(r => r.json())
       .then(data => {
         setProfile(data);
@@ -710,7 +737,7 @@ function ProfileSettings() {
       const uploadData = await uploadRes.json();
       if (!uploadRes.ok) throw new Error(uploadData.message || 'Upload failed');
 
-      const patchRes = await fetch('/api/reseller/me', {
+      const patchRes = await resellerFetch('/api/reseller/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ avatar_url: uploadData.url }),
@@ -730,7 +757,7 @@ function ProfileSettings() {
     setSaving(true);
     setResult('');
     try {
-      const res = await fetch('/api/reseller/me', {
+      const res = await resellerFetch('/api/reseller/me', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

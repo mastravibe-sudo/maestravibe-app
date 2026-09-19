@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCart, saveCart, type CartItem } from '@/components/Cart';
+import { PK_CITIES } from '@/lib/order-validation';
 
 export default function CheckoutForm() {
   const router = useRouter();
@@ -37,13 +38,22 @@ export default function CheckoutForm() {
             selectedColor: i.selectedColor,
             selectedSize: i.selectedSize,
             image: i.product.images?.[0],
+            productId: i.product.id,
+            // Supplier commission split — null for in-house MaestraVibe
+            // products, populated for supplier-owned ones. See lib/supabase.ts.
+            supplier_id: i.product.supplier_id ?? null,
+            supplier_price: i.product.supplier_price ?? null,
           })),
           total,
           status: 'new',
         }),
       });
 
-      if (!res.ok) throw new Error('Order failed');
+      const responseData = await res.json();
+      if (!res.ok) {
+        const fields = responseData.fieldErrors ? Object.entries(responseData.fieldErrors).map(([field, message]) => `${field}: ${message}`).join(' ') : '';
+        throw new Error(fields || responseData.message || 'Order failed');
+      }
 
       saveCart([]); // clear cart
       router.push('/?order=success');
@@ -70,14 +80,21 @@ export default function CheckoutForm() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             {f.label} {f.required && <span className="text-red-400">*</span>}
           </label>
-          <input
-            name={f.name}
-            type={f.type ?? 'text'}
-            required={f.required}
-            value={form[f.name]}
-            onChange={handleChange}
-            className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
-          />
+          {f.name === 'city' ? (
+            <select name={f.name} required={f.required} value={form[f.name]} onChange={e => setForm(prev => ({ ...prev, city: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300">
+              <option value="">Select your city</option>
+              {PK_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
+            </select>
+          ) : (
+            <input
+              name={f.name}
+              type={f.type ?? 'text'}
+              required={f.required}
+              value={form[f.name]}
+              onChange={handleChange}
+              className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300"
+            />
+          )}
         </div>
       ))}
 

@@ -1,16 +1,19 @@
 // app/api/accounts/route.ts
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase-admin';
+import { requireAdmin } from '@/lib/auth';
 
-function getSupabase() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const supabase = getSupabase();
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const supabase = createAdminClient();
   const { data: accounts, error } = await supabase
     .from('accounts')
-    .select('id, name, email, role, status, phone, address, website, bank_type, bank_name, bank_account_title, bank_account_number, created_at')
+    .select('id, name, email, role, status, phone, address, website, cnic_image_url, bank_type, bank_name, bank_account_title, bank_account_number, created_at')
     .order('created_at', { ascending: false });
 
   if (error) return NextResponse.json({ message: error.message }, { status: 500 });

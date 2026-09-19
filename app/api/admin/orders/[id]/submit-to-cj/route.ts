@@ -1,25 +1,23 @@
 // app/api/admin/orders/[id]/submit-to-cj/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase-admin';
+import { requireAdmin } from '@/lib/auth';
 import { createCJOrder } from '@/lib/cj';
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    if (!(await requireAdmin())) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     // ✅ Next.js 15 dynamic params
     const { id } = await params;
 
-    const supabase = getSupabase();
+    const supabase = createAdminClient();
 
     // Get order
     const { data: order, error } = await supabase

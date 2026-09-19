@@ -1,7 +1,12 @@
 'use client';
 // components/admin/HomepageEditor.tsx — FULL DASHBOARD REDESIGN
+// v2: Flash Sale + Festival are now fully independent per market
+// (Pakistan vs International), each with its own enable toggle, label,
+// discount, end date, category link, color theme, and optional image.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { THEME_OPTIONS, THEME_LABELS, THEME_GRADIENTS, type ThemeKey } from '@/lib/home/theme-gradients';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Icons ────────────────────────────────────────────
 function Ico({ d, cls = 'w-4 h-4' }: { d: string; cls?: string }) {
@@ -41,15 +46,46 @@ interface Category {
   id: string; label: string; value: string; image_url: string;
   emoji: string; is_active: boolean; sort_order: number;
 }
+
 interface SiteSettings {
-  flash_sale_enabled: boolean; flash_sale_ends_at: string;
-  flash_sale_discount: number; flash_sale_category: string;
-  stats_customers: string; stats_products: string; stats_rating: string;
   pk_banner_title: string; us_banner_title: string;
-  festival_enabled: boolean; festival_ends_at: string;
-  festival_discount: number; festival_category: string;
-  pk_festival_label: string; us_festival_label: string;
-  festival_theme_pk: string; festival_theme_us: string;
+  stats_customers: string; stats_products: string; stats_rating: string;
+
+  // Flash Sale — Pakistan
+  flash_sale_enabled_pk: boolean;
+  flash_sale_ends_at_pk: string;
+  flash_sale_discount_pk: number;
+  flash_sale_category_pk: string;
+  flash_sale_theme_pk: string;
+  flash_sale_image_pk: string;
+  flash_sale_label_pk: string;
+
+  // Flash Sale — International
+  flash_sale_enabled_us: boolean;
+  flash_sale_ends_at_us: string;
+  flash_sale_discount_us: number;
+  flash_sale_category_us: string;
+  flash_sale_theme_us: string;
+  flash_sale_image_us: string;
+  flash_sale_label_us: string;
+
+  // Festival — Pakistan
+  festival_enabled_pk: boolean;
+  festival_ends_at_pk: string;
+  festival_discount_pk: number;
+  festival_category_pk: string;
+  pk_festival_label: string;
+  festival_theme_pk: string;
+  festival_image_pk: string;
+
+  // Festival — International
+  festival_enabled_us: boolean;
+  festival_ends_at_us: string;
+  festival_discount_us: number;
+  festival_category_us: string;
+  us_festival_label: string;
+  festival_theme_us: string;
+  festival_image_us: string;
 }
 
 type Section =
@@ -60,6 +96,8 @@ type Section =
   | 'festival'
   | 'categories'
   | 'stats';
+
+type MarketTab = 'pk' | 'us';
 
 const FESTIVAL_PRESETS = [
   { name: '🎉 Eid Sale',        pk: 'Eid Mubarak! Up to {d}% off!',        us: 'Eid Celebration Sale!',           theme_pk: 'emerald', theme_us: 'emerald' },
@@ -82,7 +120,7 @@ function sanitizeFileName(n: string) {
 }
 async function uploadImage(file: File): Promise<string> {
   const name = `${Date.now()}_${sanitizeFileName(file.name)}`;
-  const res = await fetch('/api/upload', {
+  const res = await adminFetch('/api/upload', {
     method: 'POST',
     headers: { 'x-file-name': name, 'x-file-type': file.type },
     body: file,
@@ -111,7 +149,7 @@ function Toggle({ on, onChange, color = 'bg-violet-600' }: { on: boolean; onChan
 function SectionHeader({ icon, title, desc, badge }: { icon: React.ReactNode; title: string; desc: string; badge?: string }) {
   return (
     <div className="flex items-center gap-4 mb-6 pb-4 border-b-2 border-gray-100">
-      <div className="w-12 h-12 bg-violet-600 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-md shadow-violet-200">
+      <div className="w-12 h-12 bg-gradient-to-r from-violet-600 to-indigo-700 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-md shadow-violet-200">
         {icon}
       </div>
       <div>
@@ -141,12 +179,84 @@ function SaveBar({ hasChanges, saving, saved, onSave }: {
   return (
     <div className="flex items-center gap-3 mt-6 pt-4 border-t-2 border-gray-100">
       <button onClick={onSave} disabled={saving || !hasChanges}
-        className="bg-violet-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98] flex items-center gap-2 shadow-sm shadow-violet-200">
+        className="bg-gradient-to-r from-violet-600 to-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:from-violet-700 hover:to-indigo-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98] flex items-center gap-2 shadow-sm shadow-violet-200">
         <SaveIco /> {saving ? 'Saving...' : 'Save Changes'}
       </button>
       {hasChanges && !saving && <span className="text-xs text-amber-600 font-semibold">● Unsaved changes</span>}
       {saved && <span className="text-xs text-green-600 font-semibold">✓ Saved successfully!</span>}
     </div>
+  );
+}
+
+// ── Market Tabs (used inside Flash Sale & Festival sections) ─
+function MarketTabs({ active, onChange, pkOn, usOn }: {
+  active: MarketTab; onChange: (m: MarketTab) => void; pkOn: boolean; usOn: boolean;
+}) {
+  const tabs: { key: MarketTab; label: string; on: boolean }[] = [
+    { key: 'pk', label: '🇵🇰 Pakistan', on: pkOn },
+    { key: 'us', label: '🌍 International', on: usOn },
+  ];
+  return (
+    <div className="flex gap-2">
+      {tabs.map(t => (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => onChange(t.key)}
+          className={`relative px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all ${
+            active === t.key ? 'border-violet-500 bg-gradient-to-r from-violet-600 to-indigo-700 text-white' : 'border-gray-200 text-gray-600 hover:border-violet-300'
+          }`}
+        >
+          {t.label}
+          <span className={`ml-2 inline-block w-1.5 h-1.5 rounded-full align-middle ${t.on ? 'bg-emerald-400' : 'bg-gray-300'}`} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── Reusable image upload field ───────────────────────
+function ImageUploadField({ label, value, onChange }: { label: string; value: string; onChange: (url: string) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState('');
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploading(true); setErr('');
+    try { const url = await uploadImage(file); onChange(url); }
+    catch (e: any) { setErr(e.message ?? 'Upload failed'); }
+    finally { setUploading(false); }
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-gray-700 mb-2">{label}</label>
+      {value && (
+        <div className="relative h-32 rounded-2xl overflow-hidden mb-2 border-2 border-gray-200 group">
+          <img src={value} className="w-full h-full object-cover" alt="" />
+          <button type="button" onClick={() => onChange('')}
+            className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-7 h-7 text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+        </div>
+      )}
+      <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+        className="w-full border-2 border-dashed border-gray-200 rounded-xl py-4 flex flex-col items-center gap-1 text-sm text-gray-400 hover:border-violet-300 hover:text-violet-400 transition-colors">
+        <UploadIco />
+        <span className="text-xs">{uploading ? 'Uploading...' : 'Upload banner image (optional)'}</span>
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder="Or paste image URL" className={`${INP} mt-2 text-xs`} />
+      {err && <p className="text-xs text-red-500 mt-1">{err}</p>}
+    </div>
+  );
+}
+
+// ── Theme picker ───────────────────────────────────────
+function ThemeSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <select value={value} onChange={e => onChange(e.target.value)} className={INP}>
+      {THEME_OPTIONS.map(t => <option key={t} value={t}>{THEME_LABELS[t as ThemeKey]}</option>)}
+    </select>
   );
 }
 
@@ -186,7 +296,7 @@ function BannerModal({ banner, categories, onClose, onSaved }: {
     if (!form.title) { setError('Title is required'); return; }
     setSaving(true); setError('');
     try {
-      const res = await fetch(isEdit ? `/api/banners/${banner!.id}` : '/api/banners', {
+      const res = await adminFetch(isEdit ? `/api/banners/${banner!.id}` : '/api/banners', {
         method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -262,7 +372,7 @@ function BannerModal({ banner, categories, onClose, onSaved }: {
                 {[{ v: 'both', l: '🌍 Both Markets' }, { v: 'pk', l: '🇵🇰 Pakistan' }, { v: 'us', l: '🇺🇸 USA' }].map(opt => (
                   <button key={opt.v} type="button"
                     onClick={() => setForm(p => ({ ...p, market: opt.v as any }))}
-                    className={`flex-1 px-2 py-2 rounded-xl text-xs font-bold border-2 transition-all ${form.market === opt.v ? 'border-violet-500 bg-violet-600 text-white' : 'border-gray-200 text-gray-600 hover:border-violet-300'}`}>
+                    className={`flex-1 px-2 py-2 rounded-xl text-xs font-bold border-2 transition-all ${form.market === opt.v ? 'border-violet-500 bg-gradient-to-r from-violet-600 to-indigo-700 text-white' : 'border-gray-200 text-gray-600 hover:border-violet-300'}`}>
                     {opt.l}
                   </button>
                 ))}
@@ -278,7 +388,7 @@ function BannerModal({ banner, categories, onClose, onSaved }: {
             {error && <div className="text-red-600 text-sm bg-red-50 border border-red-200 px-4 py-3 rounded-xl">{error}</div>}
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={onClose} className="flex-1 border-2 border-gray-200 text-gray-600 py-3 rounded-2xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
-              <button type="submit" disabled={saving || uploading} className="flex-1 bg-violet-600 text-white py-3 rounded-2xl text-sm font-bold hover:bg-violet-700 disabled:opacity-60">
+              <button type="submit" disabled={saving || uploading} className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-700 text-white py-3 rounded-2xl text-sm font-bold hover:from-violet-700 hover:to-indigo-800 disabled:opacity-60">
                 {saving ? 'Saving...' : isEdit ? 'Update Banner' : 'Add Banner'}
               </button>
             </div>
@@ -322,7 +432,7 @@ function CategoryModal({ category, onClose, onSaved }: {
     setSaving(true); setError('');
     try {
       const payload = { ...form, value: form.value || form.label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') };
-      const res = await fetch(isEdit ? `/api/categories/${category!.id}` : '/api/categories', {
+      const res = await adminFetch(isEdit ? `/api/categories/${category!.id}` : '/api/categories', {
         method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -386,7 +496,7 @@ function CategoryModal({ category, onClose, onSaved }: {
             {error && <div className="text-red-600 text-sm bg-red-50 border border-red-200 px-4 py-3 rounded-xl">{error}</div>}
             <div className="flex gap-3 pt-1">
               <button type="button" onClick={onClose} className="flex-1 border-2 border-gray-200 text-gray-600 py-3 rounded-2xl text-sm font-semibold">Cancel</button>
-              <button type="submit" disabled={saving || uploading} className="flex-1 bg-violet-600 text-white py-3 rounded-2xl text-sm font-bold hover:bg-violet-700 disabled:opacity-60">
+              <button type="submit" disabled={saving || uploading} className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-700 text-white py-3 rounded-2xl text-sm font-bold hover:from-violet-700 hover:to-indigo-800 disabled:opacity-60">
                 {saving ? 'Saving...' : isEdit ? 'Update' : 'Add Category'}
               </button>
             </div>
@@ -415,35 +525,61 @@ export default function HomepageEditor() {
   const [editCategory, setEditCategory] = useState<Partial<Category> | undefined>();
   const [showCatModal, setShowCatModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [flashTab, setFlashTab] = useState<MarketTab>('pk');
+  const [festTab, setFestTab] = useState<MarketTab>('pk');
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       const [b, c, s] = await Promise.all([
-        fetch('/api/banners').then(r => r.json()),
-        fetch('/api/categories').then(r => r.json()),
-        fetch('/api/settings').then(r => r.json()),
+        adminFetch('/api/banners').then(r => r.json()),
+        adminFetch('/api/categories').then(r => r.json()),
+        adminFetch('/api/settings').then(r => r.json()),
       ]);
       setBanners(Array.isArray(b) ? b : []);
       setCategories(Array.isArray(c) ? c : []);
+
+      const in6h = new Date(Date.now() + 6 * 3600000).toISOString();
+      const in7d = new Date(Date.now() + 7 * 86400000).toISOString();
+
       const merged: SiteSettings = {
-        flash_sale_enabled:  s.flash_sale_enabled  ?? true,
-        flash_sale_ends_at:  s.flash_sale_ends_at  ?? new Date(Date.now() + 6*3600000).toISOString(),
-        flash_sale_discount: s.flash_sale_discount ?? 50,
-        flash_sale_category: s.flash_sale_category ?? 'sale',
-        stats_customers:     s.stats_customers     ?? '10K+',
-        stats_products:      s.stats_products      ?? '500+',
-        stats_rating:        s.stats_rating        ?? '4.9★',
-        pk_banner_title:     s.pk_banner_title     ?? '🎉 Free Delivery above Rs. 1,500 · Cash on Delivery · 7-day returns',
-        us_banner_title:     s.us_banner_title     ?? '🎉 Free shipping above $50 · Secure Checkout · Easy Returns',
-        festival_enabled:    s.festival_enabled    ?? false,
-        festival_ends_at:    s.festival_ends_at    ?? new Date(Date.now() + 7*86400000).toISOString(),
-        festival_discount:   s.festival_discount   ?? 30,
-        festival_category:   s.festival_category   ?? 'sale',
-        pk_festival_label:   s.pk_festival_label   ?? '',
-        us_festival_label:   s.us_festival_label   ?? '',
-        festival_theme_pk:   s.festival_theme_pk   ?? 'emerald',
-        festival_theme_us:   s.festival_theme_us   ?? 'blue',
+        pk_banner_title: s.pk_banner_title ?? '🎉 Free Delivery above Rs. 1,500 · Cash on Delivery · 7-day returns',
+        us_banner_title: s.us_banner_title ?? '🎉 Free shipping above $50 · Secure Checkout · Easy Returns',
+        stats_customers: s.stats_customers ?? '10K+',
+        stats_products: s.stats_products ?? '500+',
+        stats_rating: s.stats_rating ?? '4.9★',
+
+        flash_sale_enabled_pk: s.flash_sale_enabled_pk ?? s.flash_sale_enabled ?? true,
+        flash_sale_ends_at_pk: s.flash_sale_ends_at_pk ?? s.flash_sale_ends_at ?? in6h,
+        flash_sale_discount_pk: s.flash_sale_discount_pk ?? s.flash_sale_discount ?? 50,
+        flash_sale_category_pk: s.flash_sale_category_pk ?? s.flash_sale_category ?? 'sale',
+        flash_sale_theme_pk: s.flash_sale_theme_pk ?? 'violet',
+        flash_sale_image_pk: s.flash_sale_image_pk ?? '',
+        flash_sale_label_pk: s.flash_sale_label_pk ?? '',
+
+        flash_sale_enabled_us: s.flash_sale_enabled_us ?? s.flash_sale_enabled ?? true,
+        flash_sale_ends_at_us: s.flash_sale_ends_at_us ?? s.flash_sale_ends_at ?? in6h,
+        flash_sale_discount_us: s.flash_sale_discount_us ?? s.flash_sale_discount ?? 50,
+        flash_sale_category_us: s.flash_sale_category_us ?? s.flash_sale_category ?? 'sale',
+        flash_sale_theme_us: s.flash_sale_theme_us ?? 'violet',
+        flash_sale_image_us: s.flash_sale_image_us ?? '',
+        flash_sale_label_us: s.flash_sale_label_us ?? '',
+
+        festival_enabled_pk: s.festival_enabled_pk ?? s.festival_enabled ?? false,
+        festival_ends_at_pk: s.festival_ends_at_pk ?? s.festival_ends_at ?? in7d,
+        festival_discount_pk: s.festival_discount_pk ?? s.festival_discount ?? 30,
+        festival_category_pk: s.festival_category_pk ?? s.festival_category ?? 'sale',
+        pk_festival_label: s.pk_festival_label ?? '',
+        festival_theme_pk: s.festival_theme_pk ?? 'emerald',
+        festival_image_pk: s.festival_image_pk ?? '',
+
+        festival_enabled_us: s.festival_enabled_us ?? s.festival_enabled ?? false,
+        festival_ends_at_us: s.festival_ends_at_us ?? s.festival_ends_at ?? in7d,
+        festival_discount_us: s.festival_discount_us ?? s.festival_discount ?? 30,
+        festival_category_us: s.festival_category_us ?? s.festival_category ?? 'sale',
+        us_festival_label: s.us_festival_label ?? '',
+        festival_theme_us: s.festival_theme_us ?? 'blue',
+        festival_image_us: s.festival_image_us ?? '',
       };
       setSettings(merged); setSettingsBak(merged);
     } catch (err: any) { setError(err.message ?? 'Failed to load'); }
@@ -456,7 +592,7 @@ export default function HomepageEditor() {
     if (!settings) return;
     setSaving(true); setError(null); setSaved(false);
     try {
-      const res = await fetch('/api/settings', {
+      const res = await adminFetch('/api/settings', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       });
@@ -475,30 +611,30 @@ export default function HomepageEditor() {
 
   const deleteBanner = async (id: string) => {
     if (!confirm('Delete this banner?')) return;
-    await fetch(`/api/banners/${id}`, { method: 'DELETE' }); load();
+    await adminFetch(`/api/banners/${id}`, { method: 'DELETE' }); load();
   };
   const toggleBanner = async (b: Banner) => {
-    await fetch(`/api/banners/${b.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: !b.is_active }) }); load();
+    await adminFetch(`/api/banners/${b.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: !b.is_active }) }); load();
   };
   const moveBanner = async (b: Banner, dir: 'up' | 'down') => {
     const idx = banners.indexOf(b); const swap = dir === 'up' ? banners[idx-1] : banners[idx+1]; if (!swap) return;
     await Promise.all([
-      fetch(`/api/banners/${b.id}`,    { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: swap.sort_order }) }),
-      fetch(`/api/banners/${swap.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: b.sort_order    }) }),
+      adminFetch(`/api/banners/${b.id}`,    { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: swap.sort_order }) }),
+      adminFetch(`/api/banners/${swap.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: b.sort_order    }) }),
     ]); load();
   };
   const deleteCategory = async (id: string) => {
     if (!confirm('Delete category?')) return;
-    await fetch(`/api/categories/${id}`, { method: 'DELETE' }); load();
+    await adminFetch(`/api/categories/${id}`, { method: 'DELETE' }); load();
   };
   const toggleCategory = async (c: Category) => {
-    await fetch(`/api/categories/${c.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: !c.is_active }) }); load();
+    await adminFetch(`/api/categories/${c.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: !c.is_active }) }); load();
   };
   const moveCategory = async (c: Category, dir: 'up' | 'down') => {
     const idx = categories.indexOf(c); const swap = dir === 'up' ? categories[idx-1] : categories[idx+1]; if (!swap) return;
     await Promise.all([
-      fetch(`/api/categories/${c.id}`,    { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: swap.sort_order }) }),
-      fetch(`/api/categories/${swap.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: c.sort_order    }) }),
+      adminFetch(`/api/categories/${c.id}`,    { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: swap.sort_order }) }),
+      adminFetch(`/api/categories/${swap.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ sort_order: c.sort_order    }) }),
     ]); load();
   };
 
@@ -545,7 +681,7 @@ export default function HomepageEditor() {
         <aside className={`${sidebarOpen ? 'w-60' : 'w-16'} shrink-0 bg-gray-900 flex flex-col transition-all duration-200 rounded-l-2xl overflow-hidden`}>
           {/* sidebar header */}
           <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-800">
-            <div className="w-8 h-8 bg-violet-600 rounded-xl flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 bg-gradient-to-r from-violet-600 to-indigo-700 rounded-xl flex items-center justify-center shrink-0">
               <HomeIco />
             </div>
             {sidebarOpen && <span className="text-white font-black text-sm">Homepage CMS</span>}
@@ -561,7 +697,7 @@ export default function HomepageEditor() {
               return (
                 <button key={item.key} onClick={() => setSection(item.key)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all group ${
-                    active ? 'bg-violet-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                    active ? 'bg-gradient-to-r from-violet-600 to-indigo-700 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
                   }`}>
                   <span className="shrink-0">{item.icon}</span>
                   {sidebarOpen && (
@@ -569,7 +705,7 @@ export default function HomepageEditor() {
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-semibold truncate">{item.label}</span>
                         {item.count !== undefined && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-violet-500 text-white' : 'bg-gray-700 text-gray-300'}`}>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-white/20 text-white' : 'bg-gray-700 text-gray-300'}`}>
                             {item.count}
                           </span>
                         )}
@@ -587,14 +723,14 @@ export default function HomepageEditor() {
             <div className="px-4 py-4 border-t border-gray-800 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">Flash Sale</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${settings.flash_sale_enabled ? 'bg-green-900 text-green-400' : 'bg-gray-800 text-gray-500'}`}>
-                  {settings.flash_sale_enabled ? 'ON' : 'OFF'}
+                <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-gray-800 text-gray-300">
+                  🇵🇰 {settings.flash_sale_enabled_pk ? 'ON' : 'OFF'} · 🌍 {settings.flash_sale_enabled_us ? 'ON' : 'OFF'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-500">Festival</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${settings.festival_enabled ? 'bg-violet-900 text-violet-400' : 'bg-gray-800 text-gray-500'}`}>
-                  {settings.festival_enabled ? 'ON' : 'OFF'}
+                <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-gray-800 text-gray-300">
+                  🇵🇰 {settings.festival_enabled_pk ? 'ON' : 'OFF'} · 🌍 {settings.festival_enabled_us ? 'ON' : 'OFF'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -615,13 +751,13 @@ export default function HomepageEditor() {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
-                  { label: 'Active Banners',  value: String(banners.filter(b=>b.is_active).length),     sub: `of ${banners.length} total`,     color: 'bg-violet-50 border-violet-200', tc: 'text-violet-700' },
-                  { label: 'Categories',      value: String(categories.filter(c=>c.is_active).length),  sub: `of ${categories.length} total`,  color: 'bg-blue-50 border-blue-200',     tc: 'text-blue-700'   },
-                  { label: 'Flash Sale',      value: settings.flash_sale_enabled ? 'ON' : 'OFF',        sub: `${settings.flash_sale_discount}% discount`,   color: settings.flash_sale_enabled ? 'bg-rose-50 border-rose-200' : 'bg-gray-50 border-gray-200', tc: settings.flash_sale_enabled ? 'text-rose-600' : 'text-gray-500' },
-                  { label: 'Festival',        value: settings.festival_enabled ? 'ON' : 'OFF',          sub: `${settings.festival_discount}% discount`,     color: settings.festival_enabled ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200', tc: settings.festival_enabled ? 'text-emerald-600' : 'text-gray-500' },
+                  { label: 'Active Banners', value: String(banners.filter(b=>b.is_active).length), sub: `of ${banners.length} total`, color: 'bg-violet-50 border-violet-200', tc: 'text-violet-700' },
+                  { label: 'Categories',     value: String(categories.filter(c=>c.is_active).length), sub: `of ${categories.length} total`, color: 'bg-indigo-50 border-indigo-200', tc: 'text-indigo-700' },
+                  { label: 'Flash Sale',     value: `${settings.flash_sale_enabled_pk ? 'PK✓' : 'PK✕'} ${settings.flash_sale_enabled_us ? 'US✓' : 'US✕'}`, sub: 'per market', color: 'bg-violet-50 border-violet-200', tc: 'text-violet-700' },
+                  { label: 'Festival',       value: `${settings.festival_enabled_pk ? 'PK✓' : 'PK✕'} ${settings.festival_enabled_us ? 'US✓' : 'US✕'}`, sub: 'per market', color: 'bg-indigo-50 border-indigo-200', tc: 'text-indigo-700' },
                 ].map((s, i) => (
                   <div key={i} className={`rounded-2xl border-2 p-4 ${s.color}`}>
-                    <p className={`text-2xl font-black ${s.tc}`}>{s.value}</p>
+                    <p className={`text-xl font-black ${s.tc}`}>{s.value}</p>
                     <p className="text-xs font-bold text-gray-600 mt-1">{s.label}</p>
                     <p className="text-xs text-gray-400">{s.sub}</p>
                   </div>
@@ -632,7 +768,7 @@ export default function HomepageEditor() {
                 {NAV.filter(n => n.key !== 'overview').map(item => (
                   <button key={item.key} onClick={() => setSection(item.key)}
                     className="bg-white border-2 border-gray-100 rounded-2xl p-5 text-left hover:border-violet-300 hover:shadow-md transition-all group flex items-center gap-4">
-                    <div className="w-10 h-10 bg-violet-50 group-hover:bg-violet-600 text-violet-600 group-hover:text-white rounded-xl flex items-center justify-center transition-all">
+                    <div className="w-10 h-10 bg-violet-50 group-hover:bg-gradient-to-r group-hover:from-violet-600 group-hover:to-indigo-700 text-violet-600 group-hover:text-white rounded-xl flex items-center justify-center transition-all">
                       {item.icon}
                     </div>
                     <div>
@@ -654,11 +790,11 @@ export default function HomepageEditor() {
               {/* Live preview */}
               <div className="rounded-2xl overflow-hidden border-2 border-gray-200 shadow-sm">
                 <p className="text-xs font-bold text-gray-500 bg-gray-50 px-4 py-2 border-b border-gray-200">🇵🇰 Pakistan Preview</p>
-                <div className="bg-violet-600 text-white text-center text-sm py-3 font-medium px-4">
+                <div className="bg-gradient-to-r from-violet-600 to-indigo-700 text-white text-center text-sm py-3 font-medium px-4">
                   {settings.pk_banner_title || '(empty)'}
                 </div>
                 <p className="text-xs font-bold text-gray-500 bg-gray-50 px-4 py-2 border-t border-b border-gray-200">🇺🇸 USA Preview</p>
-                <div className="bg-violet-600 text-white text-center text-sm py-3 font-medium px-4">
+                <div className="bg-gradient-to-r from-violet-600 to-indigo-700 text-white text-center text-sm py-3 font-medium px-4">
                   {settings.us_banner_title || '(empty)'}
                 </div>
               </div>
@@ -689,7 +825,7 @@ export default function HomepageEditor() {
               <div className="flex items-start justify-between">
                 <SectionHeader icon={<BannerIco />} title="Hero Banners" desc="Fullscreen slider on homepage" badge={`${banners.length} slides`} />
                 <button onClick={() => { setEditBanner(undefined); setShowBannerModal(true); }}
-                  className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-violet-700 transition flex items-center gap-1.5 shrink-0 mt-1">
+                  className="bg-gradient-to-r from-violet-600 to-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:from-violet-700 hover:to-indigo-800 transition flex items-center gap-1.5 shrink-0 mt-1">
                   <PlusIco /> Add Banner
                 </button>
               </div>
@@ -749,55 +885,90 @@ export default function HomepageEditor() {
           {/* ── FLASH SALE ── */}
           {section === 'flash-sale' && (
             <div className="max-w-2xl space-y-5">
-              <SectionHeader icon={<FlashIco />} title="Flash Sale" desc="Countdown timer banner on homepage" />
+              <SectionHeader icon={<FlashIco />} title="Flash Sale" desc="Countdown timer banner — fully independent per market" />
 
-              <Card>
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-rose-50 to-orange-50">
-                  <div>
-                    <p className="font-black text-gray-900 text-sm">Flash Sale Status</p>
-                    <p className="text-xs text-gray-500">Toggle to show/hide the countdown banner</p>
-                  </div>
-                  <Toggle on={settings.flash_sale_enabled} onChange={v => set('flash_sale_enabled', v)} color="bg-rose-500" />
-                </div>
-                <div className={`p-5 space-y-5 ${!settings.flash_sale_enabled ? 'opacity-40 pointer-events-none' : ''}`}>
-                  {/* Preview */}
-                  <div className="bg-gradient-to-r from-rose-600 to-orange-500 rounded-2xl px-5 py-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-white/70 text-xs font-semibold">Limited Time</p>
-                      <p className="text-white font-black text-lg">Flash Sale — Up to {settings.flash_sale_discount}% Off!</p>
-                    </div>
-                    <div className="bg-white text-rose-600 px-4 py-2 rounded-xl font-black text-sm">Shop Sale →</div>
-                  </div>
+              <MarketTabs active={flashTab} onChange={setFlashTab} pkOn={settings.flash_sale_enabled_pk} usOn={settings.flash_sale_enabled_us} />
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Sale Ends At</label>
-                    <input type="datetime-local" value={toLocal(settings.flash_sale_ends_at)}
-                      onChange={e => set('flash_sale_ends_at', new Date(e.target.value).toISOString())} className={INP} />
-                    <div className="flex gap-2 mt-2">
-                      {[3,6,12,24].map(h => (
-                        <button key={h} type="button"
-                          onClick={() => set('flash_sale_ends_at', new Date(Date.now() + h*3600000).toISOString())}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-rose-100 hover:text-rose-700 transition">
-                          +{h}h from now
-                        </button>
-                      ))}
+              {(['pk', 'us'] as MarketTab[]).map(m => {
+                if (m !== flashTab) return null;
+                const enabled   = m === 'pk' ? settings.flash_sale_enabled_pk  : settings.flash_sale_enabled_us;
+                const endsAt    = m === 'pk' ? settings.flash_sale_ends_at_pk  : settings.flash_sale_ends_at_us;
+                const discount  = m === 'pk' ? settings.flash_sale_discount_pk : settings.flash_sale_discount_us;
+                const category  = m === 'pk' ? settings.flash_sale_category_pk : settings.flash_sale_category_us;
+                const theme     = m === 'pk' ? settings.flash_sale_theme_pk    : settings.flash_sale_theme_us;
+                const image     = m === 'pk' ? settings.flash_sale_image_pk    : settings.flash_sale_image_us;
+                const label     = m === 'pk' ? settings.flash_sale_label_pk    : settings.flash_sale_label_us;
+                const kEnabled: keyof SiteSettings  = m === 'pk' ? 'flash_sale_enabled_pk'  : 'flash_sale_enabled_us';
+                const kEndsAt: keyof SiteSettings   = m === 'pk' ? 'flash_sale_ends_at_pk'   : 'flash_sale_ends_at_us';
+                const kDiscount: keyof SiteSettings = m === 'pk' ? 'flash_sale_discount_pk'  : 'flash_sale_discount_us';
+                const kCategory: keyof SiteSettings = m === 'pk' ? 'flash_sale_category_pk'  : 'flash_sale_category_us';
+                const kTheme: keyof SiteSettings    = m === 'pk' ? 'flash_sale_theme_pk'     : 'flash_sale_theme_us';
+                const kImage: keyof SiteSettings    = m === 'pk' ? 'flash_sale_image_pk'     : 'flash_sale_image_us';
+                const kLabel: keyof SiteSettings    = m === 'pk' ? 'flash_sale_label_pk'     : 'flash_sale_label_us';
+
+                return (
+                  <Card key={m}>
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-violet-50">
+                      <div>
+                        <p className="font-black text-gray-900 text-sm">{m === 'pk' ? '🇵🇰 Pakistan' : '🌍 International'} Flash Sale</p>
+                        <p className="text-xs text-gray-500">Toggle to show/hide this market's countdown banner</p>
+                      </div>
+                      <Toggle on={enabled} onChange={v => set(kEnabled, v as any)} />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Discount %</label>
-                      <input type="number" min="1" max="99" value={settings.flash_sale_discount}
-                        onChange={e => set('flash_sale_discount', Number(e.target.value))} className={INP} />
+                    <div className={`p-5 space-y-5 ${!enabled ? 'opacity-40 pointer-events-none' : ''}`}>
+                      {/* Preview */}
+                      <div className={`relative overflow-hidden rounded-2xl px-5 py-4 flex items-center justify-between bg-gradient-to-r ${THEME_GRADIENTS[(theme as ThemeKey) in THEME_GRADIENTS ? (theme as ThemeKey) : 'violet']}`}>
+                        {image && <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${image})` }} />}
+                        <div className="relative">
+                          <p className="text-white/70 text-xs font-semibold">Limited Time</p>
+                          <p className="text-white font-black text-lg">{label || `Flash Sale — Up to ${discount}% Off!`}</p>
+                        </div>
+                        <div className="relative bg-white text-gray-900 px-4 py-2 rounded-xl font-black text-sm">Shop Sale →</div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Custom Label (optional)</label>
+                        <input value={label} onChange={e => set(kLabel, e.target.value as any)} placeholder={`Flash Sale — Up to ${discount}% Off!`} className={INP} />
+                      </div>
+
+                      <ImageUploadField label="Banner Image" value={image} onChange={url => set(kImage, url as any)} />
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Color Theme</label>
+                        <ThemeSelect value={theme} onChange={v => set(kTheme, v as any)} />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Sale Ends At</label>
+                        <input type="datetime-local" value={toLocal(endsAt)}
+                          onChange={e => set(kEndsAt, new Date(e.target.value).toISOString() as any)} className={INP} />
+                        <div className="flex gap-2 mt-2">
+                          {[3,6,12,24].map(h => (
+                            <button key={h} type="button"
+                              onClick={() => set(kEndsAt, new Date(Date.now() + h*3600000).toISOString() as any)}
+                              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-violet-100 hover:text-violet-700 transition">
+                              +{h}h from now
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Discount %</label>
+                          <input type="number" min="1" max="99" value={discount}
+                            onChange={e => set(kDiscount, Number(e.target.value) as any)} className={INP} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Button Links To</label>
+                          <select value={category} onChange={e => set(kCategory, e.target.value as any)} className={INP}>
+                            {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Button Links To</label>
-                      <select value={settings.flash_sale_category} onChange={e => set('flash_sale_category', e.target.value)} className={INP}>
-                        {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+                  </Card>
+                );
+              })}
               <SaveBar hasChanges={hasChanges} saving={saving} saved={saved} onSave={saveSettings} />
             </div>
           )}
@@ -805,107 +976,107 @@ export default function HomepageEditor() {
           {/* ── FESTIVAL SALE ── */}
           {section === 'festival' && (
             <div className="max-w-2xl space-y-5">
-              <SectionHeader icon={<FestIco />} title="Festival / Seasonal Sale" desc="Eid, Independence Day, Ramadan, Black Friday and more" />
+              <SectionHeader icon={<FestIco />} title="Festival / Seasonal Sale" desc="Eid, Independence Day, Ramadan, Black Friday and more — independent per market" />
 
-              <Card>
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-violet-50 to-purple-50">
-                  <div>
-                    <p className="font-black text-gray-900 text-sm">Festival Banner Status</p>
-                    <p className="text-xs text-gray-500">Toggle to show/hide on homepage</p>
-                  </div>
-                  <Toggle on={settings.festival_enabled} onChange={v => set('festival_enabled', v)} />
+              <MarketTabs active={festTab} onChange={setFestTab} pkOn={settings.festival_enabled_pk} usOn={settings.festival_enabled_us} />
+
+              {/* Quick presets — apply to both markets at once since one occasion usually covers the whole store */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Quick Presets (applies to both markets)</label>
+                <div className="flex flex-wrap gap-2">
+                  {FESTIVAL_PRESETS.map(p => (
+                    <button key={p.name} type="button"
+                      onClick={() => setSettings(prev => prev ? {
+                        ...prev,
+                        pk_festival_label: p.pk.replace('{d}', String(prev.festival_discount_pk)),
+                        us_festival_label: p.us.replace('{d}', String(prev.festival_discount_us)),
+                        festival_theme_pk: p.theme_pk, festival_theme_us: p.theme_us,
+                      } : prev)}
+                      className="text-xs px-3 py-2 rounded-xl bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 font-semibold transition">
+                      {p.name}
+                    </button>
+                  ))}
                 </div>
-                <div className={`p-5 space-y-5 ${!settings.festival_enabled ? 'opacity-40 pointer-events-none' : ''}`}>
+              </div>
 
-                  {/* Quick presets */}
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Quick Presets</label>
-                    <div className="flex flex-wrap gap-2">
-                      {FESTIVAL_PRESETS.map(p => (
-                        <button key={p.name} type="button"
-                          onClick={() => setSettings(prev => prev ? {
-                            ...prev,
-                            pk_festival_label: p.pk.replace('{d}', String(prev.festival_discount)),
-                            us_festival_label: p.us.replace('{d}', String(prev.festival_discount)),
-                            festival_theme_pk: p.theme_pk, festival_theme_us: p.theme_us,
-                          } : prev)}
-                          className="text-xs px-3 py-2 rounded-xl bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 font-semibold transition">
-                          {p.name}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              {(['pk', 'us'] as MarketTab[]).map(m => {
+                if (m !== festTab) return null;
+                const enabled  = m === 'pk' ? settings.festival_enabled_pk  : settings.festival_enabled_us;
+                const endsAt   = m === 'pk' ? settings.festival_ends_at_pk  : settings.festival_ends_at_us;
+                const discount = m === 'pk' ? settings.festival_discount_pk : settings.festival_discount_us;
+                const category = m === 'pk' ? settings.festival_category_pk : settings.festival_category_us;
+                const theme    = m === 'pk' ? settings.festival_theme_pk    : settings.festival_theme_us;
+                const image    = m === 'pk' ? settings.festival_image_pk    : settings.festival_image_us;
+                const label    = m === 'pk' ? settings.pk_festival_label    : settings.us_festival_label;
+                const kEnabled: keyof SiteSettings  = m === 'pk' ? 'festival_enabled_pk'  : 'festival_enabled_us';
+                const kEndsAt: keyof SiteSettings   = m === 'pk' ? 'festival_ends_at_pk'   : 'festival_ends_at_us';
+                const kDiscount: keyof SiteSettings = m === 'pk' ? 'festival_discount_pk'  : 'festival_discount_us';
+                const kCategory: keyof SiteSettings = m === 'pk' ? 'festival_category_pk'  : 'festival_category_us';
+                const kTheme: keyof SiteSettings    = m === 'pk' ? 'festival_theme_pk'     : 'festival_theme_us';
+                const kImage: keyof SiteSettings    = m === 'pk' ? 'festival_image_pk'     : 'festival_image_us';
+                const kLabel: keyof SiteSettings    = m === 'pk' ? 'pk_festival_label'     : 'us_festival_label';
 
-                  {/* Live preview */}
-                  <div className="rounded-2xl overflow-hidden border-2 border-gray-200">
-                    <p className="text-xs font-bold text-gray-500 bg-gray-50 px-3 py-2 border-b">🇵🇰 Pakistan Preview</p>
-                    <div className={`bg-${settings.festival_theme_pk}-600 text-white px-5 py-3 flex items-center justify-between`}>
-                      <p className="font-black">{settings.pk_festival_label || 'Set festival label below...'}</p>
-                      <span className="bg-white text-gray-800 text-xs font-bold px-3 py-1.5 rounded-lg">Shop →</span>
+                return (
+                  <Card key={m}>
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-violet-50">
+                      <div>
+                        <p className="font-black text-gray-900 text-sm">{m === 'pk' ? '🇵🇰 Pakistan' : '🌍 International'} Festival Banner</p>
+                        <p className="text-xs text-gray-500">Toggle to show/hide this market's festival banner</p>
+                      </div>
+                      <Toggle on={enabled} onChange={v => set(kEnabled, v as any)} />
                     </div>
-                    <p className="text-xs font-bold text-gray-500 bg-gray-50 px-3 py-2 border-t border-b">🇺🇸 USA Preview</p>
-                    <div className={`bg-${settings.festival_theme_us}-600 text-white px-5 py-3 flex items-center justify-between`}>
-                      <p className="font-black">{settings.us_festival_label || 'Set festival label below...'}</p>
-                      <span className="bg-white text-gray-800 text-xs font-bold px-3 py-1.5 rounded-lg">Shop →</span>
-                    </div>
-                  </div>
+                    <div className={`p-5 space-y-5 ${!enabled ? 'opacity-40 pointer-events-none' : ''}`}>
+                      {/* Preview */}
+                      <div className={`relative overflow-hidden rounded-2xl px-5 py-4 flex items-center justify-between bg-gradient-to-r ${THEME_GRADIENTS[(theme as ThemeKey) in THEME_GRADIENTS ? (theme as ThemeKey) : 'violet']}`}>
+                        {image && <div className="absolute inset-0 bg-cover bg-center opacity-30" style={{ backgroundImage: `url(${image})` }} />}
+                        <p className="relative text-white font-black">{label || 'Set festival label below...'}</p>
+                        <span className="relative bg-white text-gray-800 text-xs font-bold px-3 py-1.5 rounded-lg">Shop →</span>
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">🇵🇰 Pakistan Text</label>
-                      <input value={settings.pk_festival_label} onChange={e => set('pk_festival_label', e.target.value)} placeholder="Eid Mubarak! Up to 30% off!" className={INP} />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">🇺🇸 USA Text</label>
-                      <input value={settings.us_festival_label} onChange={e => set('us_festival_label', e.target.value)} placeholder="Eid Celebration Sale!" className={INP} />
-                    </div>
-                  </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">{m === 'pk' ? '🇵🇰 Pakistan' : '🌍 International'} Text</label>
+                        <input value={label} onChange={e => set(kLabel, e.target.value as any)} placeholder="Eid Mubarak! Up to 30% off!" className={INP} />
+                      </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Festival Ends At</label>
-                    <input type="datetime-local" value={toLocal(settings.festival_ends_at)}
-                      onChange={e => set('festival_ends_at', new Date(e.target.value).toISOString())} className={INP} />
-                    <div className="flex gap-2 mt-2">
-                      {[1,3,7,14].map(d => (
-                        <button key={d} type="button"
-                          onClick={() => set('festival_ends_at', new Date(Date.now() + d*86400000).toISOString())}
-                          className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-violet-100 hover:text-violet-700 transition">
-                          +{d}d from now
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                      <ImageUploadField label="Banner Image" value={image} onChange={url => set(kImage, url as any)} />
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Discount %</label>
-                      <input type="number" min="1" max="99" value={settings.festival_discount}
-                        onChange={e => set('festival_discount', Number(e.target.value))} className={INP} />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Links to Category</label>
-                      <select value={settings.festival_category} onChange={e => set('festival_category', e.target.value)} className={INP}>
-                        {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                      </select>
-                    </div>
-                  </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Color Theme</label>
+                        <ThemeSelect value={theme} onChange={v => set(kTheme, v as any)} />
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">🇵🇰 Color Theme</label>
-                      <select value={settings.festival_theme_pk} onChange={e => set('festival_theme_pk', e.target.value)} className={INP}>
-                        {['emerald','green','blue','cyan','violet','rose','orange','yellow','gray'].map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Festival Ends At</label>
+                        <input type="datetime-local" value={toLocal(endsAt)}
+                          onChange={e => set(kEndsAt, new Date(e.target.value).toISOString() as any)} className={INP} />
+                        <div className="flex gap-2 mt-2">
+                          {[1,3,7,14].map(d => (
+                            <button key={d} type="button"
+                              onClick={() => set(kEndsAt, new Date(Date.now() + d*86400000).toISOString() as any)}
+                              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-violet-100 hover:text-violet-700 transition">
+                              +{d}d from now
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Discount %</label>
+                          <input type="number" min="1" max="99" value={discount}
+                            onChange={e => set(kDiscount, Number(e.target.value) as any)} className={INP} />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Links to Category</label>
+                          <select value={category} onChange={e => set(kCategory, e.target.value as any)} className={INP}>
+                            {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">🇺🇸 Color Theme</label>
-                      <select value={settings.festival_theme_us} onChange={e => set('festival_theme_us', e.target.value)} className={INP}>
-                        {['emerald','green','blue','cyan','violet','rose','orange','yellow','gray'].map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+                  </Card>
+                );
+              })}
               <SaveBar hasChanges={hasChanges} saving={saving} saved={saved} onSave={saveSettings} />
             </div>
           )}
@@ -916,7 +1087,7 @@ export default function HomepageEditor() {
               <div className="flex items-start justify-between">
                 <SectionHeader icon={<CatIco />} title="Categories" desc="Shop categories — synced with product form automatically" badge={`${categories.length} total`} />
                 <button onClick={() => { setEditCategory(undefined); setShowCatModal(true); }}
-                  className="bg-violet-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-violet-700 transition flex items-center gap-1.5 shrink-0 mt-1">
+                  className="bg-gradient-to-r from-violet-600 to-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-bold hover:from-violet-700 hover:to-indigo-800 transition flex items-center gap-1.5 shrink-0 mt-1">
                   <PlusIco /> Add Category
                 </button>
               </div>
@@ -959,7 +1130,7 @@ export default function HomepageEditor() {
               <SectionHeader icon={<StatsIco />} title="Stats & Numbers" desc="Trust numbers shown at the bottom of homepage" />
 
               {/* Preview */}
-              <div className="bg-gradient-to-r from-violet-700 to-purple-800 rounded-2xl p-6">
+              <div className="bg-gradient-to-r from-violet-600 to-indigo-700 rounded-2xl p-6">
                 <div className="grid grid-cols-3 gap-4 text-center">
                   {[
                     { num: settings.stats_customers, label: 'Happy Customers' },
@@ -968,7 +1139,7 @@ export default function HomepageEditor() {
                   ].map((s, i) => (
                     <div key={i}>
                       <p className="text-white text-2xl font-black">{s.num}</p>
-                      <p className="text-violet-300 text-xs mt-1">{s.label}</p>
+                      <p className="text-violet-200 text-xs mt-1">{s.label}</p>
                     </div>
                   ))}
                 </div>

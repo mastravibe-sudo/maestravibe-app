@@ -7,12 +7,13 @@ export async function POST(req: NextRequest) {
       message: "Logout successful",
     });
 
-    response.cookies.set("admin_session", "", {
+    // Clear the canonical `session` JWT cookie
+    response.cookies.set('session', '', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
       maxAge: 0, // Immediately expire
-      path: "/",
+      path: '/',
     });
 
     return response;

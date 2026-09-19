@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { Submission } from '@/lib/supabase';
 import { StatusBadge, SpinnerIcon } from './shared';
+import { adminFetch } from '@/lib/admin-fetch';
 
 export default function SubmissionsManager() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -13,7 +14,7 @@ export default function SubmissionsManager() {
   const fetchSubmissions = useCallback(async () => {
     setLoading(true); setError(null);
     try {
-      const res = await fetch('/api/submissions');
+      const res = await adminFetch('/api/submissions');
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? 'Error loading data');
       setSubmissions(Array.isArray(data) ? data : []);
@@ -26,7 +27,7 @@ export default function SubmissionsManager() {
 
   const updateSubmissionStatus = async (id: string, status: Submission['status']) => {
     try {
-      await fetch('/api/submissions', {
+      await adminFetch('/api/submissions', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, status }),
       });
@@ -52,7 +53,7 @@ export default function SubmissionsManager() {
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border-2 border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl border-2 border-gray-100 overflow-x-auto">
         {loading && (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400">
             <SpinnerIcon /><p className="text-sm font-medium mt-3">Loading...</p>

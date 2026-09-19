@@ -3,7 +3,8 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useCallback, memo } from 'react';
+import { useState, useCallback, memo, useEffect } from 'react';
+import { adminFetch } from '@/lib/admin-fetch';
 import {
   ProductsIco, OrdersIco, SubsIco, SubmitIco, HomeIco, AccountsIco, CJIco, LogoutIcon, Ico, DashIco,
 } from './shared';
@@ -13,6 +14,7 @@ const NAV = [
   { href: '/admin/products',    label: 'Products',    icon: <ProductsIco />, desc: 'Catalog & inventory' },
   { href: '/admin/orders',      label: 'Orders',       icon: <OrdersIco />,  desc: 'Sales & fulfillment' },
   { href: '/admin/cj',          label: 'CJ / HHC',    icon: <CJIco />,       desc: 'Dropshipping sync' },
+  { href: '/admin/suppliers',   label: 'Suppliers',   icon: <AccountsIco />, desc: 'Approvals & CNIC review', highlight: true },
   { href: '/admin/subscribers', label: 'Subscribers', icon: <SubsIco />,     desc: 'Newsletter list' },
   { href: '/admin/submissions', label: 'Submissions', icon: <SubmitIco />,   desc: 'Contact & careers' },
   { href: '/admin/homepage',    label: 'Homepage',    icon: <HomeIco />,     desc: 'Site CMS' },
@@ -54,10 +56,14 @@ const SidebarNav = memo(function SidebarNav({ pathname, sidebarOpen }: { pathnam
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router   = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (window.innerWidth >= 768) setSidebarOpen(true);
+  }, [pathname]);
 
   const logout = useCallback(async () => {
-    await fetch('/api/admin-login', { method: 'DELETE' });
+    await adminFetch('/api/admin-login', { method: 'DELETE' });
     router.push('/admin/login');
   }, [router]);
 
@@ -68,28 +74,35 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
       {/* Top Nav */}
       <div className="bg-white border-b border-gray-100 shrink-0 shadow-sm z-30">
-        <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-4 flex items-center justify-between">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-4 md:px-8 py-3 md:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-2xl flex items-center justify-center shadow-md shadow-violet-200">
               <span className="text-white font-black text-sm">MV</span>
             </div>
             <div>
-              <h1 className="text-lg font-black text-gray-900 leading-none">Admin Dashboard</h1>
-              <p className="text-xs text-gray-500 mt-0.5">MaestraVibe Store Management</p>
+              <h1 className="text-sm sm:text-lg font-black text-gray-900 leading-none">Admin Dashboard</h1>
+              <p className="hidden sm:block text-xs text-gray-500 mt-0.5">MaestraVibe Store Management</p>
             </div>
           </div>
-          <button onClick={logout}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-red-500 border-2 border-gray-200 hover:border-red-200 rounded-xl bg-white transition-all font-semibold flex items-center gap-1.5">
-            <LogoutIcon /> Logout
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={toggleSidebar} className="md:hidden w-11 h-11 flex items-center justify-center rounded-xl border-2 border-gray-200 text-gray-600 bg-white" aria-label="Open admin navigation">
+              <Ico d="M4 6h16M4 12h16M4 18h16" cls="w-5 h-5" />
+            </button>
+            <button onClick={logout}
+              className="min-h-11 px-3 sm:px-4 py-2 text-sm text-gray-600 hover:text-red-500 border-2 border-gray-200 hover:border-red-200 rounded-xl bg-white transition-all font-semibold flex items-center gap-1.5">
+              <LogoutIcon /> Logout
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 max-w-[1600px] w-full mx-auto px-4 md:px-8 py-6 flex flex-col">
         <div className="flex-1 min-h-0 flex rounded-2xl shadow-sm border-2 border-gray-100 overflow-hidden bg-white relative">
 
+          {sidebarOpen && <button type="button" aria-label="Close admin navigation" onClick={() => setSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/40 z-30" />}
+
           {/* Sidebar */}
-          <aside className={`${sidebarOpen ? 'w-60' : 'w-16'} shrink-0 bg-gray-900 flex flex-col transition-all duration-200 h-full relative`}>
+          <aside className={`fixed md:relative inset-y-0 left-0 z-40 ${sidebarOpen ? 'translate-x-0 md:w-60' : '-translate-x-full md:translate-x-0 md:w-16'} w-72 shrink-0 bg-gray-900 flex flex-col transition-all duration-200 h-full relative`}>
             <div className="flex items-center gap-3 px-4 py-4 border-b border-gray-800 shrink-0">
               <div className="w-8 h-8 bg-gradient-to-br from-violet-600 to-fuchsia-600 rounded-xl flex items-center justify-center shrink-0">
                 <ProductsIco />
@@ -110,13 +123,13 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
               type="button"
               onClick={toggleSidebar}
               title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-              className="absolute top-4 -right-3.5 w-7 h-7 rounded-full bg-violet-600 hover:bg-violet-700 text-white flex items-center justify-center shadow-lg shadow-violet-900/30 border-2 border-white transition-all z-20">
+              className="hidden md:flex absolute top-4 -right-3.5 w-9 h-9 rounded-full bg-violet-600 hover:bg-violet-700 text-white items-center justify-center shadow-lg shadow-violet-900/30 border-2 border-white transition-all z-20">
               <Ico d={sidebarOpen ? "M15 19l-7-7 7-7" : "M9 5l7 7-7 7"} cls="w-3.5 h-3.5" />
             </button>
           </aside>
 
           {/* Main content */}
-          <main className="flex-1 min-w-0 min-h-0 overflow-y-auto bg-gray-50 p-6">
+          <main className="flex-1 min-w-0 min-h-0 overflow-y-auto bg-gray-50 p-3 sm:p-4 md:p-6">
             {children}
           </main>
         </div>

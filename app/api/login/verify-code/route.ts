@@ -1,6 +1,6 @@
 // app/api/login/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase-admin';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Email and password are required' }, { status: 400 });
     }
 
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const supabase = createAdminClient();
     const normalized = email.toLowerCase().trim();
 
     const { data: account } = await supabase.from('accounts').select('*').eq('email', normalized).single();
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const res = NextResponse.json({ success: true, role: account.role, status: account.status });
     res.cookies.set('session', token, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60,
       path: '/',

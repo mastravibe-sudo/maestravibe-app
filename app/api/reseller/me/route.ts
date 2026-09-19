@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/auth';
+import { normalizePhone, validateAddress, validateName } from '@/lib/order-validation';
 
 function getSupabase() {
-  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  return createAdminClient();
 }
 
 export async function GET() {
@@ -30,15 +31,19 @@ export async function PATCH(req: NextRequest) {
     const { name, phone, address, website, avatar_url } = body;
 
     const updates: Record<string, any> = {};
-    if (name !== undefined) updates.name = name;
-    if (phone !== undefined) {
-      const cleanPhone = String(phone).replace(/[\s-]/g, '');
-      if (!/^(\+92|0)?3\d{9}$/.test(cleanPhone)) {
-        return NextResponse.json({ message: 'Please enter a valid Pakistani phone number' }, { status: 400 });
-      }
-      updates.phone = cleanPhone;
+    if (name !== undefined || phone !== undefined || address !== undefined) {
+      const fieldErrors: Record<string, string> = {};
+      const nameError = name !== undefined ? validateName(name) : undefined;
+      const phoneResult = phone !== undefined ? normalizePhone(phone, 'pk') : undefined;
+      const addressError = address !== undefined ? validateAddress(address) : undefined;
+      if (nameError) fieldErrors.name = nameError;
+      if (phoneResult?.error) fieldErrors.phone = phoneResult.error;
+      if (addressError) fieldErrors.address = addressError;
+      if (Object.keys(fieldErrors).length > 0) return NextResponse.json({ message: 'Please correct your profile details.', fieldErrors }, { status: 400 });
+      if (name !== undefined) updates.name = String(name).trim();
+      if (phone !== undefined) updates.phone = phoneResult?.value;
+      if (address !== undefined) updates.address = String(address).trim();
     }
-    if (address !== undefined) updates.address = address;
     if (website !== undefined) {
       if (website && !/^https?:\/\/.+\..+/.test(website)) {
         return NextResponse.json({ message: 'Please enter a valid website URL' }, { status: 400 });

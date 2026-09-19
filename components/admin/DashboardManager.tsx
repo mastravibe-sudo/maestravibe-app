@@ -2,6 +2,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { adminFetch } from '@/lib/admin-fetch';
 import { StatCard, SpinnerIcon, AccountsIco, OrdersIco, ProductsIco, Ico } from './shared';
 
 type Stats = {
@@ -12,9 +13,11 @@ type Stats = {
   visitors30d:      number;
   totalOrders:      number;
   monthOrders:      number;
-  totalRevenue:     number;
-  monthRevenue:     number;
+  totalRevenue:     { pk: number; us: number };
+  monthRevenue:     { pk: number; us: number };
   totalProducts:    number;
+  subscribers:      number;
+  visitors:         { status: 'tracked'; today: number; last30Days: number } | { status: 'not_tracked'; reason: string };
 };
 
 const EyeVisitIco = () => <Ico d="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />;
@@ -27,24 +30,14 @@ export default function DashboardManager() {
 
   const load = useCallback(async () => {
     setLoading(true); setError(null);
+    setStats(null);
     try {
-      const res = await fetch('/api/admin/stats');
+      const res = await adminFetch('/api/admin/stats');
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? 'Failed to load stats');
 
-      // API se jo bhi field missing ho, safe default de do
-      setStats({
-        activeResellers:  data.activeResellers  ?? 0,
-        pendingResellers: data.pendingResellers ?? 0,
-        customerAccounts: data.customerAccounts ?? 0,
-        visitorsToday:    data.visitorsToday    ?? 0,
-        visitors30d:      data.visitors30d      ?? 0,
-        totalOrders:      data.totalOrders      ?? 0,
-        monthOrders:      data.monthOrders      ?? 0,
-        totalRevenue:     data.totalRevenue     ?? 0,
-        monthRevenue:     data.monthRevenue     ?? 0,
-        totalProducts:    data.totalProducts    ?? 0,
-      });
+      if (!data || typeof data !== 'object') throw new Error('Stats response was invalid');
+      setStats(data as Stats);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load stats');
     } finally { setLoading(false); }
@@ -74,31 +67,31 @@ export default function DashboardManager() {
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
         <StatCard
           label="Active Resellers"
-          value={stats?.activeResellers ?? 0}
+          value={stats ? stats.activeResellers : ''}
           sub={stats ? `${stats.pendingResellers} pending approval` : undefined}
           tone="blue" icon={<AccountsIco />} loading={loading}
         />
         <StatCard
           label="Customer Accounts"
-          value={stats?.customerAccounts ?? 0}
+          value={stats ? stats.customerAccounts : ''}
           tone="violet" icon={<AccountsIco />} loading={loading}
         />
         <StatCard
           label="Visitors Today"
-          value={stats?.visitorsToday ?? 0}
-          sub={stats ? `${stats.visitors30d} in last 30 days` : undefined}
+          value={stats ? stats.visitors.status === 'tracked' ? stats.visitors.today : 'Not tracked' : ''}
+          sub={stats ? stats.visitors.status === 'tracked' ? `${stats.visitors.last30Days} in last 30 days` : stats.visitors.reason : undefined}
           tone="green" icon={<EyeVisitIco />} loading={loading}
         />
         <StatCard
           label="Orders Today"
-          value={stats?.monthOrders ?? 0}
+          value={stats ? stats.monthOrders : ''}
           sub={stats ? `${stats.totalOrders} all-time` : undefined}
           tone="amber" icon={<OrdersIco />} loading={loading}
         />
         <StatCard
           label="Revenue This Month"
-          value={stats ? `Rs. ${Number(stats.monthRevenue).toLocaleString()}` : 0}
-          sub={stats ? `Rs. ${Number(stats.totalRevenue).toLocaleString()} all-time` : undefined}
+          value={stats ? `Rs. ${stats.monthRevenue.pk.toLocaleString()}` : ''}
+          sub={stats ? `US: $${stats.monthRevenue.us.toFixed(2)} · PK all-time: Rs. ${stats.totalRevenue.pk.toLocaleString()}` : undefined}
           tone="rose" icon={<CashIco />} loading={loading}
         />
       </div>
@@ -109,7 +102,7 @@ export default function DashboardManager() {
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-violet-50 text-violet-600 rounded-xl flex items-center justify-center"><ProductsIco /></div>
           <div>
-            <p className="text-lg font-black text-gray-900">{loading ? '—' : stats?.totalProducts ?? 0}</p>
+            <p className="text-lg font-black text-gray-900">{loading ? '—' : stats ? stats.totalProducts : ''}</p>
             <p className="text-xs text-gray-500">Total products live in store</p>
           </div>
         </div>

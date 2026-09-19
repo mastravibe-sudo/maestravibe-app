@@ -1,14 +1,8 @@
 // app/api/accounts/[id]/warn/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
+import { createAdminClient } from '@/lib/supabase-admin';
+import { requireAdmin } from '@/lib/auth';
 
 async function sendWarningEmail(email: string, name: string, message: string) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -50,6 +44,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const { id } = await params;
 
@@ -62,7 +60,7 @@ export async function POST(
       );
     }
 
-    const supabase = getSupabase();
+    const supabase = createAdminClient();
 
     const { data: account } = await supabase
       .from('accounts')
@@ -110,9 +108,13 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+  }
+
   const { id } = await params;
 
-  const supabase = getSupabase();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from('account_warnings')

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { requireAdmin } from '@/lib/auth';
 
 function getR2Client() {
   const accountId = process.env.R2_ACCOUNT_ID;
@@ -35,6 +36,10 @@ function sanitizeFileName(fileName: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!(await requireAdmin())) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     const r2 = getR2Client();
     const bucketName = process.env.R2_BUCKET_NAME;
     const publicUrl = process.env.R2_PUBLIC_URL;

@@ -1,6 +1,6 @@
 // app/api/forgot-password/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase-admin';
 import bcrypt from 'bcryptjs';
 
 function generatePassword(length = 10) {
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Email is required' }, { status: 400 });
     }
 
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+    const supabase = createAdminClient();
     const normalized = email.toLowerCase().trim();
 
     const { data: account } = await supabase.from('accounts').select('id, email').eq('email', normalized).single();

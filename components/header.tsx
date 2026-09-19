@@ -89,7 +89,7 @@ function XIcon() {
 }
 function SpinnerIcon() {
   return (
-    <svg className="w-4 h-4 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
+    <svg className="w-4 h-4 animate-spin text-violet-500" fill="none" viewBox="0 0 24 24">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
     </svg>
@@ -100,6 +100,13 @@ function WhatsAppIcon() {
     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
       <path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.558 4.122 1.532 5.859L.057 23.97l6.255-1.643A11.94 11.94 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.894a9.876 9.876 0 01-5.031-1.378l-.361-.214-3.741.981.998-3.648-.235-.374A9.868 9.868 0 012.106 12C2.106 6.58 6.58 2.106 12 2.106S21.894 6.58 21.894 12 17.42 21.894 12 21.894z" />
+    </svg>
+  );
+}
+function SparkleIcon() {
+  return (
+    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M12 2l1.6 5.8L19 9l-5.4 1.2L12 16l-1.6-5.8L5 9l5.4-1.2L12 2z" />
     </svg>
   );
 }
@@ -131,7 +138,7 @@ function MarketSwitcher() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl border-2 border-gray-200 hover:border-purple-400 bg-white text-sm font-semibold transition-all"
+        className="flex items-center gap-1.5 px-2.5 py-2 min-h-11 rounded-xl border-2 border-gray-200 hover:border-violet-400 bg-white text-sm font-semibold transition-all"
         title="Switch market"
       >
         <span className="text-base">{current.flag}</span>
@@ -149,8 +156,8 @@ function MarketSwitcher() {
                 setOpen(false);
                 setTimeout(() => window.location.reload(), 50);
               }}
-              className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-purple-50 hover:text-purple-700 transition-colors ${
-                market === opt.value ? 'text-purple-700 font-semibold bg-purple-50' : 'text-gray-700'
+              className={`w-full flex items-center gap-2 px-3 py-2.5 text-sm hover:bg-violet-50 hover:text-violet-700 transition-colors ${
+                market === opt.value ? 'text-violet-700 font-semibold bg-violet-50' : 'text-gray-700'
               }`}
             >
               <span className="text-base">{opt.flag}</span>
@@ -285,7 +292,7 @@ function SearchBar({
       <form
         onSubmit={handleSubmit}
         role="search"
-        className="flex w-full rounded-xl overflow-hidden border-2 border-gray-200 focus-within:border-purple-500 transition-colors"
+        className="flex w-full rounded-xl overflow-hidden border-2 border-gray-200 focus-within:border-violet-500 transition-colors"
       >
         {variant === 'desktop' && (
           <div className="relative" ref={catRef}>
@@ -303,7 +310,7 @@ function SearchBar({
                     key={c.value}
                     href={c.value === 'all' ? '/' : `/?category=${c.value}`}
                     onClick={() => setCatOpen(false)}
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition"
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-violet-50 hover:text-violet-700 transition"
                   >
                     {c.name}
                   </Link>
@@ -344,7 +351,7 @@ function SearchBar({
         <button
           type="submit"
           aria-label="Search"
-          className="px-4 bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white transition-all"
+          className="px-4 bg-gradient-to-r from-violet-600 to-indigo-700 hover:from-violet-700 hover:to-indigo-800 text-white transition-all"
         >
           <SearchIcon />
         </button>
@@ -378,7 +385,7 @@ function SearchBar({
                 aria-selected={activeIndex === idx}
                 onMouseEnter={() => setActiveIndex(idx)}
                 className={`flex items-center gap-3 px-4 py-2.5 transition ${
-                  activeIndex === idx ? 'bg-purple-50' : 'hover:bg-gray-50'
+                  activeIndex === idx ? 'bg-violet-50' : 'hover:bg-gray-50'
                 }`}
               >
                 {item.image ? (
@@ -393,7 +400,7 @@ function SearchBar({
                   {item.category && <p className="text-xs text-gray-400 capitalize">{item.category}</p>}
                 </div>
                 {typeof item.price === 'number' && (
-                  <span className="text-sm font-semibold text-purple-700 shrink-0">
+                  <span className="text-sm font-semibold text-violet-700 shrink-0">
                     {item.price.toLocaleString()}
                   </span>
                 )}
@@ -404,7 +411,7 @@ function SearchBar({
             <button
               type="button"
               onClick={() => submitSearch(search)}
-              className="w-full text-left px-4 py-2.5 text-sm font-medium text-purple-700 hover:bg-purple-50 border-t border-gray-100 transition"
+              className="w-full text-left px-4 py-2.5 text-sm font-medium text-violet-700 hover:bg-violet-50 border-t border-gray-100 transition"
             >
               See all results for "{search.trim()}"
             </button>
@@ -477,11 +484,12 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
   ];
 
   const announcementMap: Record<string, string> = {
-    pk: `🇵🇰 Free delivery above Rs. 2,000 · Cash on Delivery · ${config?.phone ?? ''}`,
-    us: `🇺🇸 Free shipping above $50 · Secure checkout · ${config?.phone ?? ''}`,
-    ae: `🇦🇪 Free delivery above AED 150 · Secure checkout · ${config?.phone ?? ''}`,
-    uk: `🇬🇧 Free delivery above £30 · Secure checkout · ${config?.phone ?? ''}`,
+    pk: `Free delivery above Rs. 2,000 · Cash on Delivery · ${config?.phone ?? ''}`,
+    us: `Free shipping above $50 · Secure checkout · ${config?.phone ?? ''}`,
+    ae: `Free delivery above AED 150 · Secure checkout · ${config?.phone ?? ''}`,
+    uk: `Free delivery above £30 · Secure checkout · ${config?.phone ?? ''}`,
   };
+  const marketFlag: Record<string, string> = { pk: '🇵🇰', us: '🇺🇸', ae: '🇦🇪', uk: '🇬🇧' };
   const announcementText = announcementMap[market] ?? announcementMap['pk'];
 
   return (
@@ -490,16 +498,37 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
         scrolled ? 'bg-white/95 backdrop-blur-md shadow-md' : 'bg-white border-b border-gray-100'
       }`}
     >
-      {/* Space-themed announcement bar — deep indigo → purple → indigo, matches the logo's badge background */}
-      <div className="bg-gradient-to-r from-indigo-950 via-purple-800 to-indigo-950 text-white text-xs py-2 text-center tracking-wide font-medium">
-        {announcementText}
+      <style>{`
+        @keyframes headerShimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+      `}</style>
+
+      {/* Announcement bar — deep indigo → violet → indigo, matches the logo's cosmic palette */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-indigo-950 via-violet-800 to-indigo-950 text-white text-xs py-2 text-center tracking-wide font-medium">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.15]"
+          style={{
+            backgroundImage: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.8), transparent)',
+            backgroundSize: '200% 100%',
+            animation: 'headerShimmer 5s linear infinite',
+          }}
+        />
+        <span className="relative inline-flex items-center gap-1.5">
+          <span className="text-sm leading-none">{marketFlag[market] ?? marketFlag.pk}</span>
+          {announcementText}
+          <SparkleIcon />
+        </span>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="shrink-0 flex items-center" onClick={handleLogoClick}>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <Link href="/" className="shrink-0 flex items-center relative" onClick={handleLogoClick}>
+            {/* Soft brand glow behind the logo, ties into the cosmic identity without overpowering the light header */}
+            <div className="absolute -inset-2 rounded-full bg-violet-400/20 blur-xl -z-10" />
             {/* Logo — place the provided logo file at public/image1.png */}
-            <div className="relative h-12 w-[150px] sm:h-14 sm:w-[180px]">
+            <div className="relative h-10 w-[112px] sm:h-14 sm:w-[180px]">
               <Image
                 src="/image/image1.png"
                 alt="Maestra Vibe"
@@ -512,18 +541,18 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
           </Link>
 
           {/* Search — desktop */}
-          <div className="hidden md:flex flex-1 max-w-2xl mx-4">
+          <div className="hidden lg:flex flex-1 max-w-2xl mx-4">
             <SearchBar variant="desktop" categories={CATEGORIES} onNavigateSearch={handleNavigateSearch} />
           </div>
 
-          <div className="flex items-center gap-2 ml-auto md:ml-0">
-            <nav className="hidden md:flex items-center gap-1">
+          <div className="flex items-center gap-1.5 sm:gap-2 ml-auto md:ml-0 shrink-0">
+            <nav className="hidden lg:flex items-center gap-1">
               {navLinks.map((l) => (
                 <Link
                   key={l.href}
                   href={l.href}
                   className={`px-3 py-2 rounded-lg text-sm font-medium transition ${
-                    pathname === l.href ? 'text-purple-700 bg-purple-50' : 'text-gray-600 hover:text-purple-700 hover:bg-gray-50'
+                    pathname === l.href ? 'text-violet-700 bg-violet-50' : 'text-gray-600 hover:text-violet-700 hover:bg-gray-50'
                   }`}
                 >
                   {l.label}
@@ -538,7 +567,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
                 href={`https://wa.me/${config?.whatsapp ?? ''}`}
                 target="_blank"
                 rel="noreferrer"
-                className="hidden md:flex items-center justify-center w-9 h-9 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition"
+                className="hidden lg:flex items-center justify-center w-9 h-9 rounded-lg bg-green-50 hover:bg-green-100 text-green-600 transition"
                 title="WhatsApp"
               >
                 <WhatsAppIcon />
@@ -547,12 +576,12 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
 
             <button
               onClick={onCartClick}
-              className="relative flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white px-4 py-2.5 rounded-xl transition-all font-medium text-sm shadow-md shadow-purple-200 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
+              className="relative flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-700 hover:from-violet-700 hover:to-indigo-800 text-white min-h-11 min-w-11 sm:px-4 py-2.5 rounded-xl transition-all font-medium text-sm shadow-md shadow-violet-200 hover:shadow-lg hover:shadow-violet-300 hover:-translate-y-0.5 active:translate-y-0"
             >
               <CartIcon />
               <span className="hidden sm:inline">Cart</span>
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none ring-2 ring-white">
+                <span className="absolute -top-1.5 -right-1.5 bg-amber-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center leading-none ring-2 ring-white">
                   {cartCount > 9 ? '9+' : cartCount}
                 </span>
               )}
@@ -560,7 +589,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
 
             <button
               onClick={() => setMobileOpen(!mobileOpen)}
-              className="md:hidden w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+              className="lg:hidden w-11 h-11 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:border-violet-300 hover:bg-gray-50 transition"
             >
               {mobileOpen ? <CloseIcon /> : <MenuIcon />}
             </button>
@@ -568,19 +597,23 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
         </div>
 
         {/* Search — mobile */}
-        <div className="md:hidden mt-3">
+        <div className="lg:hidden mt-3">
           <SearchBar variant="mobile" categories={CATEGORIES} onNavigateSearch={handleNavigateSearch} />
         </div>
       </div>
 
       <div className="border-t border-gray-100 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex gap-1.5 overflow-x-auto py-2 scrollbar-hide snap-x snap-mandatory scroll-px-4 -mx-4 px-4">
+          <div className="w-full min-w-0 max-w-full flex gap-1.5 overflow-x-auto py-2 scrollbar-hide snap-x snap-mandatory scroll-px-4 -mx-4 px-4">
             {CATEGORIES.map((c) => (
               <button
                 key={c.value}
                 onClick={() => handleCategory(c.value)}
-                className="flex-shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-semibold text-gray-600 hover:bg-purple-100 hover:text-purple-700 transition whitespace-nowrap active:scale-95"
+                className={`flex-shrink-0 snap-start min-h-11 px-3 py-1.5 rounded-full text-xs font-semibold transition whitespace-nowrap active:scale-95 ${
+                  c.value === 'sale'
+                    ? 'text-amber-700 bg-amber-50 hover:bg-amber-100'
+                    : 'text-gray-600 hover:bg-violet-100 hover:text-violet-700'
+                }`}
               >
                 {c.name}
               </button>
@@ -590,13 +623,13 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
       </div>
 
       {mobileOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-1">
+        <div className="lg:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-1">
           {navLinks.map((l) => (
             <Link
               key={l.href}
               href={l.href}
               onClick={() => setMobileOpen(false)}
-              className="block px-4 py-3 rounded-xl text-gray-700 hover:bg-purple-50 hover:text-purple-700 font-medium transition"
+              className="block min-h-11 px-4 py-3 rounded-xl text-gray-700 hover:bg-violet-50 hover:text-violet-700 font-medium transition"
             >
               {l.label}
             </Link>
@@ -604,6 +637,11 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
           <div className="pt-3 border-t border-gray-100">
             <MarketSwitcher />
           </div>
+          {market === 'pk' && (
+            <a href={`https://wa.me/${config?.whatsapp ?? ''}`} target="_blank" rel="noreferrer" className="flex min-h-11 items-center gap-2 px-4 py-3 rounded-xl text-green-700 hover:bg-green-50 font-medium transition">
+              <WhatsAppIcon /> WhatsApp
+            </a>
+          )}
           <div className="pt-2 border-t border-gray-100 mt-2">
             <p className="text-xs text-gray-400 px-4 mb-2 font-semibold uppercase tracking-wide">Categories</p>
             <div className="grid grid-cols-3 gap-1">
@@ -611,7 +649,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
                 <button
                   key={c.value}
                   onClick={() => handleCategory(c.value)}
-                  className="text-left px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-purple-50 hover:text-purple-700 transition"
+                  className="text-left min-h-11 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-violet-50 hover:text-violet-700 transition"
                 >
                   {c.name}
                 </button>

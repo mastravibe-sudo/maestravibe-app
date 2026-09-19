@@ -1,18 +1,18 @@
 // app/api/subscribers/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase-admin';
+import { createPublicClient } from '@/lib/supabase-public';
+import { requireAdmin } from '@/lib/auth';
 
 function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) throw new Error('Missing Supabase environment variables');
-  return createClient(url, key);
+  return createPublicClient();
 }
 
 // GET /api/subscribers
 export async function GET() {
   try {
-    const supabase = getSupabase();
+    if (!(await requireAdmin())) return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const supabase = createAdminClient();
     const { data, error } = await supabase
       .from('subscribers')
       .select('*')

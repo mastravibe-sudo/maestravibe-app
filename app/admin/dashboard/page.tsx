@@ -3,14 +3,16 @@
 // app/admin/dashboard/page.tsx
 
 import { useEffect, useState, useCallback } from 'react';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-interface MonthData   { label: string; revenue: number; orders: number; }
+interface MonthData   { label: string; pkRevenue: number; usRevenue: number; orders: number; }
 interface RecentOrder { id: string; total: number; status: string; market: string; customer: string; city: string; created_at: string; }
+interface Revenue { pk: number; us: number; }
 interface Stats {
-  totalRevenue:    number;
+  totalRevenue:    Revenue;
   totalOrders:     number;
-  monthRevenue:    number;
+  monthRevenue:    Revenue;
   monthOrders:     number;
   totalProducts:   number;
   monthlyHistory:  MonthData[];
@@ -20,14 +22,94 @@ interface Stats {
   activeResellers:  number;
   pendingResellers: number;
   customerAccounts: number;
-  visitorsToday:    number;
-  visitors30d:      number;
+  subscribers:      number;
+  visitors:         { status: 'tracked'; today: number; last30Days: number } | { status: 'not_tracked'; reason: string };
 }
 
 // ── Helpers (undefined-safe) ──────────────────────────────────────────────────
-const fmtPKR = (n?: number) => `Rs. ${Math.round(n ?? 0).toLocaleString('en-PK')}`;
-const fmtUSD = (n?: number) => `$${((n ?? 0) / 280).toFixed(0)}`;
-const fmtNum = (n?: number) => (n ?? 0).toLocaleString();
+const fmtPKR = (n: number) => `Rs. ${Math.round(n).toLocaleString('en-PK')}`;
+const fmtUSD = (n: number) => `$${n.toFixed(2)}`;
+const fmtNum = (n: number) => n.toLocaleString();
+
+function formatCustomer(value: unknown): { name: string; city: string } {
+  if (!value || typeof value !== 'object') return { name: String(value ?? '—'), city: '' };
+  const customer = value as { name?: unknown; city?: unknown };
+  return {
+    name: String(customer.name ?? '—'),
+    city: String(customer.city ?? ''),
+  };
+}
+
+function parseStats(data: unknown): Stats {
+  if (!data || typeof data !== 'object') throw new Error('Stats response was invalid');
+  const value = data as Record<string, unknown>;
+  const number = (input: unknown, label: string) => {
+    if (typeof input !== 'number' || !Number.isFinite(input)) throw new Error(`Stats field ${label} was invalid`);
+    return input;
+  };
+  const revenue = (input: unknown, label: string): Revenue => {
+    if (!input || typeof input !== 'object') throw new Error(`Stats field ${label} was invalid`);
+    const item = input as Record<string, unknown>;
+    return { pk: number(item.pk, `${label}.pk`), us: number(item.us, `${label}.us`) };
+  };
+  const history = value.monthlyHistory;
+  if (!Array.isArray(history) || history.length !== 12) throw new Error('Monthly history was invalid');
+  const monthlyHistory = history.map((item, index) => {
+    if (!item || typeof item !== 'object') throw new Error(`Monthly history item ${index} was invalid`);
+    const month = item as Record<string, unknown>;
+    if (typeof month.label !== 'string') throw new Error(`Monthly history label ${index} was invalid`);
+    return {
+      label: month.label,
+      pkRevenue: number(month.pkRevenue, `monthlyHistory[${index}].pkRevenue`),
+      usRevenue: number(month.usRevenue, `monthlyHistory[${index}].usRevenue`),
+      orders: number(month.orders, `monthlyHistory[${index}].orders`),
+    };
+  });
+  const visitors = value.visitors;
+  if (!visitors || typeof visitors !== 'object') throw new Error('Visitor metrics were invalid');
+  const visitorValue = visitors as Record<string, unknown>;
+  const parsedVisitors = visitorValue.status === 'tracked'
+    ? { status: 'tracked' as const, today: number(visitorValue.today, 'visitors.today'), last30Days: number(visitorValue.last30Days, 'visitors.last30Days') }
+    : visitorValue.status === 'not_tracked' && typeof visitorValue.reason === 'string'
+      ? { status: 'not_tracked' as const, reason: visitorValue.reason }
+      : (() => { throw new Error('Visitor metrics were invalid'); })();
+  const marketBreakdown = value.marketBreakdown;
+  if (!marketBreakdown || typeof marketBreakdown !== 'object') throw new Error('Market breakdown was invalid');
+  const market = marketBreakdown as Record<string, unknown>;
+  const marketValue = (input: unknown, label: string) => {
+    if (!input || typeof input !== 'object') throw new Error(`Market breakdown ${label} was invalid`);
+    const item = input as Record<string, unknown>;
+    return { orders: number(item.orders, `${label}.orders`), revenue: number(item.revenue, `${label}.revenue`) };
+  };
+  if (!Array.isArray(value.recentOrders) || !value.statusBreakdown || typeof value.statusBreakdown !== 'object') throw new Error('Order summaries were invalid');
+  return {
+    totalRevenue: revenue(value.totalRevenue, 'totalRevenue'),
+    totalOrders: number(value.totalOrders, 'totalOrders'),
+    monthRevenue: revenue(value.monthRevenue, 'monthRevenue'),
+    monthOrders: number(value.monthOrders, 'monthOrders'),
+    totalProducts: number(value.totalProducts, 'totalProducts'),
+    monthlyHistory,
+    marketBreakdown: { pk: marketValue(market.pk, 'pk'), us: marketValue(market.us, 'us') },
+    recentOrders: (value.recentOrders as Record<string, unknown>[]).map(order => {
+      const customer = formatCustomer(order.customer);
+      return {
+        id: String(order.id ?? ''),
+        total: number(order.total, 'recentOrders.total'),
+        status: String(order.status ?? 'unknown'),
+        market: order.market === 'us' ? 'us' : 'pk',
+        customer: customer.name,
+        city: customer.city,
+        created_at: String(order.created_at ?? ''),
+      };
+    }),
+    statusBreakdown: value.statusBreakdown as Record<string, number>,
+    activeResellers: number(value.activeResellers, 'activeResellers'),
+    pendingResellers: number(value.pendingResellers, 'pendingResellers'),
+    customerAccounts: number(value.customerAccounts, 'customerAccounts'),
+    subscribers: number(value.subscribers, 'subscribers'),
+    visitors: parsedVisitors,
+  };
+}
 
 const STATUS_COLOR: Record<string, string> = {
   new:       'bg-blue-100 text-blue-700',
@@ -39,25 +121,29 @@ const STATUS_COLOR: Record<string, string> = {
 
 // ── Mini Bar Chart ────────────────────────────────────────────────────────────
 function BarChart({ data, valueKey }: { data: MonthData[]; valueKey: 'revenue' | 'orders' }) {
-  const max = Math.max(...data.map(d => d[valueKey]), 1);
+  const maxOrders = Math.max(...data.map(d => d.orders), 1);
+  const maxPK = Math.max(...data.map(d => d.pkRevenue), 1);
+  const maxUS = Math.max(...data.map(d => d.usRevenue), 1);
   return (
     <div className="flex items-end gap-1.5 h-32 w-full">
       {data.map((d, i) => {
-        const pct = (d[valueKey] / max) * 100;
+        const orderPct = (d.orders / maxOrders) * 100;
+        const pkPct = (d.pkRevenue / maxPK) * 100;
+        const usPct = (d.usRevenue / maxUS) * 100;
         const isLast = i === data.length - 1;
         return (
           <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
             <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-              {d.label}: {valueKey === 'revenue' ? fmtPKR(d[valueKey]) : d[valueKey]}
+              {d.label}: {valueKey === 'revenue' ? `${fmtPKR(d.pkRevenue)} / ${fmtUSD(d.usRevenue)}` : d.orders}
             </div>
-            <div className="w-full rounded-t-md transition-all duration-300"
-              style={{
-                height: `${Math.max(pct, 2)}%`,
-                background: isLast
-                  ? 'linear-gradient(to top, #7c3aed, #a855f7)'
-                  : 'linear-gradient(to top, #ddd6fe, #ede9fe)',
-              }}
-            />
+            {valueKey === 'revenue' ? (
+              <div className="w-full flex items-end justify-center gap-0.5 h-full">
+                <div className="w-1/2 rounded-t-md" style={{ height: `${Math.max(pkPct, 2)}%`, background: isLast ? '#7c3aed' : '#c4b5fd' }} />
+                <div className="w-1/2 rounded-t-md" style={{ height: `${Math.max(usPct, 2)}%`, background: isLast ? '#2563eb' : '#93c5fd' }} />
+              </div>
+            ) : (
+              <div className="w-full rounded-t-md" style={{ height: `${Math.max(orderPct, 2)}%`, background: isLast ? '#7c3aed' : '#ddd6fe' }} />
+            )}
             <span className="text-[9px] text-gray-400 truncate w-full text-center">{d.label}</span>
           </div>
         );
@@ -77,31 +163,13 @@ export default function AdminDashboard() {
   const fetchStats = useCallback(async (m: string) => {
     setLoading(true);
     setError('');
+    setStats(null);
     try {
-      const res = await fetch(`/api/admin/stats?market=${m}`);
-      if (!res.ok) throw new Error('Failed to load stats');
+      const res = await adminFetch(`/api/admin/stats?market=${m}`);
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? 'Failed to load stats');
 
-      // Missing fields ko safe defaults do — API chahe jo bhi bheje
-      setStats({
-        totalRevenue:    data.totalRevenue    ?? 0,
-        totalOrders:     data.totalOrders     ?? 0,
-        monthRevenue:    data.monthRevenue    ?? 0,
-        monthOrders:     data.monthOrders     ?? 0,
-        totalProducts:   data.totalProducts   ?? 0,
-        monthlyHistory:  data.monthlyHistory  ?? [],
-        marketBreakdown: {
-          pk: { orders: data.marketBreakdown?.pk?.orders ?? 0, revenue: data.marketBreakdown?.pk?.revenue ?? 0 },
-          us: { orders: data.marketBreakdown?.us?.orders ?? 0, revenue: data.marketBreakdown?.us?.revenue ?? 0 },
-        },
-        recentOrders:    data.recentOrders    ?? [],
-        statusBreakdown: data.statusBreakdown ?? {},
-        activeResellers:  data.activeResellers  ?? 0,
-        pendingResellers: data.pendingResellers ?? 0,
-        customerAccounts: data.customerAccounts ?? 0,
-        visitorsToday:    data.visitorsToday    ?? 0,
-        visitors30d:      data.visitors30d      ?? 0,
-      });
+      setStats(parseStats(data));
     } catch (e: any) {
       setError(e.message ?? 'Error loading stats');
     } finally {
@@ -110,8 +178,6 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => { fetchStats(market); }, [market, fetchStats]);
-
-  const fmtMoney = (n?: number) => market === 'us' ? fmtUSD(n) : fmtPKR(n);
 
   // ── Stat cards data ───────────────────────────────────────────────────────
   const cards = stats ? [
@@ -132,16 +198,23 @@ export default function AdminDashboard() {
     },
     {
       label: 'Visitors Today',
-      value: fmtNum(stats.visitorsToday),
-      sub:   `${fmtNum(stats.visitors30d)} in last 30 days`,
+      value: stats.visitors.status === 'tracked' ? fmtNum(stats.visitors.today) : 'Not tracked',
+      sub:   stats.visitors.status === 'tracked' ? `${fmtNum(stats.visitors.last30Days)} in last 30 days` : stats.visitors.reason,
       color: 'from-teal-600 to-cyan-500',
       icon:  '👁️',
+    },
+    {
+      label: 'Newsletter Subscribers',
+      value: fmtNum(stats.subscribers),
+      sub:   'Active email subscribers',
+      color: 'from-orange-500 to-amber-500',
+      icon:  '✉️',
     },
     // ── purane cards ──
     {
       label:  'Total Revenue',
-      value:  fmtMoney(stats.totalRevenue),
-      sub:    `This month: ${fmtMoney(stats.monthRevenue)}`,
+      value:  fmtPKR(stats.totalRevenue.pk),
+      sub:    `US: ${fmtUSD(stats.totalRevenue.us)}`,
       color:  'from-violet-600 to-fuchsia-600',
       icon:   '💰',
     },
@@ -175,8 +248,8 @@ export default function AdminDashboard() {
     },
     {
       label:  'This Month',
-      value:  fmtMoney(stats.monthRevenue),
-      sub:    `${stats.monthOrders} orders`,
+      value:  fmtPKR(stats.monthRevenue.pk),
+      sub:    `${stats.monthOrders} orders · US: ${fmtUSD(stats.monthRevenue.us)}`,
       color:  'from-rose-500 to-pink-500',
       icon:   '📅',
     },
@@ -215,13 +288,13 @@ export default function AdminDashboard() {
 
       {/* ── Stat Cards ── */}
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-          {[...Array(9)].map((_, i) => (
+        <div className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+          {[...Array(10)].map((_, i) => (
             <div key={i} className="h-28 bg-gray-100 rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 min-[390px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
           {cards.map((c, i) => (
             <div key={i} className={`bg-gradient-to-br ${c.color} rounded-2xl p-5 text-white shadow-lg`}>
               <div className="flex items-start justify-between mb-2">
@@ -272,7 +345,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                   <div className="h-full bg-gradient-to-r from-green-500 to-emerald-400 rounded-full transition-all duration-700"
-                    style={{ width: `${stats.totalOrders ? (stats.marketBreakdown.pk.orders / stats.totalOrders) * 100 : 0}%` }} />
+                    style={{ width: `${stats.totalOrders === 0 ? 0 : (stats.marketBreakdown.pk.orders / stats.totalOrders) * 100}%` }} />
                 </div>
                 <p className="text-xs text-gray-400 mt-1">{fmtPKR(stats.marketBreakdown.pk.revenue)}</p>
               </div>
@@ -283,7 +356,7 @@ export default function AdminDashboard() {
                 </div>
                 <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
                   <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-400 rounded-full transition-all duration-700"
-                    style={{ width: `${stats.totalOrders ? (stats.marketBreakdown.us.orders / stats.totalOrders) * 100 : 0}%` }} />
+                    style={{ width: `${stats.totalOrders === 0 ? 0 : (stats.marketBreakdown.us.orders / stats.totalOrders) * 100}%` }} />
                 </div>
                 <p className="text-xs text-gray-400 mt-1">{fmtUSD(stats.marketBreakdown.us.revenue)}</p>
               </div>
