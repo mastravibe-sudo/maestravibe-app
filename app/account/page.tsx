@@ -17,6 +17,7 @@ export default function AccountPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [code, setCode] = useState('');
+  const [verificationProof, setVerificationProof] = useState('');
   const [stage, setStage] = useState<'role' | 'email' | 'verify' | 'details' | 'done'>('role');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -82,6 +83,7 @@ export default function AccountPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Code verification failed');
+      setVerificationProof(data.verificationProof || '');
       setStage('details');
     } catch (err: any) {
       setError(err.message || 'Invalid code');
@@ -109,6 +111,7 @@ export default function AccountPage() {
       const payload = {
         email,
         password,
+        verificationProof,
         terms_accepted: termsAccepted,
         role,
         name: form.name,
@@ -248,7 +251,7 @@ export default function AccountPage() {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => { setEmail(e.target.value); setVerificationProof(''); }}
                     placeholder="name@example.com"
                     className={inputClass}
                   />

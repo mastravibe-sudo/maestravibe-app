@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { useMarket } from '@/lib/market-context';
 import type { Market } from '@/lib/market';
+import { UserRound } from 'lucide-react';
 
 const CATEGORIES = [
   { name: 'All',         value: 'all'          },
@@ -441,7 +442,14 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
     fetch('/api/session', { cache: 'no-store' })
       .then(async (res) => {
         if (!mounted) return;
-        setAccountHref(res.ok ? '/dashboard' : '/login');
+        const data = res.ok ? await res.json() : null;
+        const role = data?.session?.role;
+        setAccountHref(
+          role === 'supplier' ? '/supplier/dashboard' :
+          role === 'reseller' ? '/dashboard' :
+          role === 'admin' ? '/admin/dashboard' :
+          role ? '/account/dashboard' : '/login'
+        );
       })
       .catch(() => {
         if (mounted) setAccountHref('/login');
@@ -449,7 +457,7 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -524,20 +532,21 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          <Link href="/" className="shrink-0 flex items-center relative" onClick={handleLogoClick}>
+          <Link href="/" className="shrink-0 flex items-center gap-1 sm:gap-2 relative" onClick={handleLogoClick}>
             {/* Soft brand glow behind the logo, ties into the cosmic identity without overpowering the light header */}
             <div className="absolute -inset-2 rounded-full bg-violet-400/20 blur-xl -z-10" />
             {/* Logo — place the provided logo file at public/image1.png */}
-            <div className="relative h-10 w-[112px] sm:h-14 sm:w-[180px]">
+            <div className="relative h-10 w-[76px] sm:h-14 sm:w-[150px]">
               <Image
                 src="/image/image1.png"
                 alt="Maestra Vibe"
                 fill
                 priority
                 className="object-contain object-left"
-                sizes="180px"
+                sizes="150px"
               />
             </div>
+            <span className="whitespace-nowrap text-[10px] sm:text-xs font-bold text-gray-800">Maestra Market</span>
           </Link>
 
           {/* Search — desktop */}
@@ -561,6 +570,15 @@ export default function Header({ cartCount = 0, onCartClick }: Props) {
             </nav>
 
             <MarketSwitcher />
+
+            <Link
+              href={accountHref}
+              aria-label={accountHref === '/login' ? 'Log in to your account' : 'Open your profile'}
+              title={accountHref === '/login' ? 'Login' : 'Profile'}
+              className="flex h-11 w-10 items-center justify-center rounded-xl border border-gray-200 text-gray-700 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700"
+            >
+              <UserRound className="h-5 w-5" aria-hidden="true" />
+            </Link>
 
             {market === 'pk' && (
               <a

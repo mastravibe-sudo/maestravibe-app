@@ -153,8 +153,7 @@ export default function AIChat({ products, onOpenProduct, onAddToCart, pageConte
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Chat failed');
+        throw new Error('Maafi chahta hoon, AI assistant abhi available nahi. Kuch dair baad dobara koshish karein. 🙏');
       }
 
       const data = await response.json();
@@ -196,8 +195,9 @@ export default function AIChat({ products, onOpenProduct, onAddToCart, pageConte
         });
       }
     } catch (error) {
-      const errorMsg =
-        error instanceof Error ? error.message : 'Internet connection check karein aur dobara try karein. 🙏';
+      const errorMsg = error instanceof Error
+        ? error.message
+        : 'Maafi chahta hoon, AI assistant abhi available nahi. Internet check karke dobara try karein. 🙏';
 
       setMessages((prev) => [
         ...prev,
@@ -284,7 +284,7 @@ export default function AIChat({ products, onOpenProduct, onAddToCart, pageConte
 
       {/* ── CHAT WINDOW ── */}
       {open && (
-        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-95 w-full md:w-96 h-dvh md:h-150 bg-[#F7EFE8] md:rounded-[32px] shadow-[0_32px_80px_rgba(33,34,56,0.18)] flex flex-col overflow-hidden ring-1 ring-[#E9D6C6]">
+        <div className="fixed bottom-0 right-0 md:bottom-6 md:right-6 z-95 w-full md:w-96 h-dvh max-h-dvh min-h-0 md:h-[min(600px,calc(100dvh-3rem))] bg-[#F7EFE8] md:rounded-4xl shadow-[0_32px_80px_rgba(33,34,56,0.18)] flex flex-col overflow-hidden ring-1 ring-[#E9D6C6]">
           {/* Header */}
           <div className="bg-[#1F2345] px-4 py-3 flex items-center justify-between shrink-0 ring-1 ring-[#3C3F65]/10">
             <div className="flex items-center gap-3">
@@ -368,7 +368,7 @@ export default function AIChat({ products, onOpenProduct, onAddToCart, pageConte
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#F7F0E8]">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 space-y-4 bg-[#F7F0E8]">
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] ${msg.role === 'user' ? '' : 'space-y-2'}`}>
@@ -505,12 +505,12 @@ export default function AIChat({ products, onOpenProduct, onAddToCart, pageConte
 
           {/* Quick questions (only at start) */}
           {messages.length <= 1 && (
-            <div className="px-4 py-3 bg-[#FBF5EE] border-t border-[#E9D6C6] flex gap-2 overflow-x-auto scrollbar-hide shrink-0">
+            <div className="max-w-full px-4 py-3 bg-[#FBF5EE] border-t border-[#E9D6C6] flex gap-2 overflow-x-auto overscroll-x-contain scrollbar-hide shrink-0">
               {quickQuestions.map((q, i) => (
                 <button
                   key={i}
                   onClick={() => send(q)}
-                  className="shrink-0 text-[11px] bg-[#1F2345] text-[#F7EFE8] px-3 py-2 rounded-full font-semibold hover:bg-[#252a49] transition whitespace-nowrap"
+                  className="shrink-0 snap-start text-[11px] bg-[#1F2345] text-[#F7EFE8] px-3 py-2 rounded-full font-semibold hover:bg-[#252a49] transition whitespace-nowrap"
                 >
                   {q}
                 </button>
@@ -533,7 +533,7 @@ export default function AIChat({ products, onOpenProduct, onAddToCart, pageConte
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
                 placeholder="Kuch bhi poochein..."
-                className="flex-1 border-2 border-[#E9D6C6] rounded-full px-4 py-3 text-sm bg-white text-[#312D2A] placeholder:text-[#A28F7D] focus:outline-none focus:border-[#F2A33C] transition"
+                className="min-w-0 flex-1 border-2 border-[#E9D6C6] rounded-full px-4 py-3 text-sm bg-white text-[#312D2A] placeholder:text-[#A28F7D] focus:outline-none focus:border-[#F2A33C] transition"
               />
 
               {hasVoice && (
@@ -569,6 +569,7 @@ export default function AIChat({ products, onOpenProduct, onAddToCart, pageConte
                 </svg>
               </button>
             </div>
+            <p className="text-center text-[10px] leading-4 text-[#A28F7D]">Powered by Maestra Vibe</p>
           </div>
         </div>
       )}

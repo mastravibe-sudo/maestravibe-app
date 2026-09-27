@@ -8,7 +8,7 @@ import LayoutWrapper from '@/components/LayoutWrapper';
 import PwaInstallPrompt from '@/components/PwaInstallPrompt';
 
 export const metadata: Metadata = {
-  title: 'MaestraVibe',
+  title: 'Maestra Market',
   description: 'Premium online shopping',
   manifest: '/manifest.webmanifest',
   icons: {
@@ -35,7 +35,7 @@ export default async function RootLayout({
         <meta name="theme-color" content="#7c3aed" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="MaestraVibe" />
+        <meta name="apple-mobile-web-app-title" content="Maestra Market" />
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="apple-touch-icon" sizes="512x512" href="/icons/apple-touch-icon.png" />
       </head>

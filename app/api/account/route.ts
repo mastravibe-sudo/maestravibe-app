@@ -39,6 +39,10 @@ export async function POST(req: NextRequest) {
       bank_type, bank_name, bank_account_title, bank_account_number, terms_accepted,
       cnic_image_url } = body;
 
+    if (role !== 'supplier') {
+      return NextResponse.json({ success: false, message: 'Invalid account type' }, { status: 400 });
+    }
+
     if (!email || !password || !name || !phone || !age || !address) {
       return NextResponse.json({ success: false, message: 'Name, email, password, phone, age and address are required' }, { status: 400 });
     }

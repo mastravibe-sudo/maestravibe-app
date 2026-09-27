@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation'; // ✅ NEW
 import { useMarket } from '@/lib/market-context';
 
@@ -112,6 +112,7 @@ export default function HomePage({
   // ✅ NEW: a just-detected GPS location, held here until the customer
   // explicitly confirms it before it's written into customerInfo.
   const [pendingLocation, setPendingLocation] = useState<DetectedLocation | null>(null);
+  const suppressQuickViewRef = useRef(false);
 
   // ── Init ──
   useEffect(() => {
@@ -301,14 +302,27 @@ export default function HomePage({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const openProduct = (product: any) => {
+  const openProduct = (product: any, updateUrl = true) => {
+    suppressQuickViewRef.current = false;
     setSelectedProduct(product);
     setSelectedColor(product.colors?.[0] ?? '');
     setSelectedSize(product.sizes?.[0] ?? 'Standard');
     setSelectedImageIndex(0);
+    if (updateUrl) {
+      const productId = product._id ?? product.id;
+      if (productId) router.push(`/?quickView=${encodeURIComponent(productId)}`, { scroll: false });
+    }
   };
 
-  const openProductPage = (product: any) => {
+  const closeQuickView = () => {
+    if (searchParams.get('quickView')) {
+      suppressQuickViewRef.current = true;
+      router.replace('/', { scroll: false });
+    }
+    setSelectedProduct(null);
+  };
+
+  const openProductPage = (product: any, updateUrl = true) => {
     setViewProductPage(product);
     setSelectedColor(product.colors?.[0] ?? '');
     setSelectedSize(product.sizes?.[0] ?? 'Standard');
@@ -320,6 +334,10 @@ export default function HomePage({
       saveRecentlyViewed(u);
       return u;
     });
+    if (updateUrl) {
+      const productId = product._id ?? product.id;
+      if (productId) router.push(`/?product=${encodeURIComponent(productId)}`, { scroll: false });
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -327,25 +345,42 @@ export default function HomePage({
     const urlSearch = searchParams.get('search');
     const urlCategory = searchParams.get('category');
     const urlOpenProduct = searchParams.get('openProduct');
+    const urlProduct = searchParams.get('product');
+    const urlQuickView = searchParams.get('quickView');
+    if (!urlQuickView) suppressQuickViewRef.current = false;
 
-    if (urlOpenProduct) {
+    if (urlOpenProduct || urlProduct || urlQuickView) {
       if (allProducts.length === 0) return;
+      const requestedProductId = urlOpenProduct || urlProduct || urlQuickView;
       const product = allProducts.find(
-        (p: any) => p._id === urlOpenProduct || p.id === urlOpenProduct || p.slug === urlOpenProduct
+        (p: any) => p._id === requestedProductId || p.id === requestedProductId || p.slug === requestedProductId
       );
-      if (product) {
-        openProductPage(product);
+      if (!product) return;
+      if (urlQuickView) {
+        if (suppressQuickViewRef.current) return;
+        openProduct(product, false);
+      } else {
+        openProductPage(product, false);
       }
-      router.replace('/', { scroll: false });
+      if (urlOpenProduct) {
+        const productId = product._id ?? product.id;
+        router.replace(`/?product=${encodeURIComponent(productId)}`, { scroll: false });
+      }
       return;
     }
+
+    if (viewProductPage) {
+      setViewProductPage(null);
+      setView('home');
+    }
+    if (selectedProduct) setSelectedProduct(null);
 
     if (urlSearch || urlCategory) {
       navigateTo(urlCategory || 'all', urlSearch || '');
       router.replace('/', { scroll: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, allProducts]);
+  }, [searchParams, allProducts, router, selectedProduct, viewProductPage]);
 
   const addToCart = (product: any, color?: string, size?: string, qty = 1) => {
     const finalColor = color ?? selectedColor ?? product.colors?.[0] ?? '';
@@ -359,7 +394,7 @@ export default function HomePage({
     });
     setAddedToCart(product._id);
     setTimeout(() => setAddedToCart(null), 1800);
-    setSelectedProduct(null);
+    closeQuickView();
   };
 
   const handleBuyNow = (product: any, color?: string, size?: string, qty = 1) => {
@@ -368,7 +403,7 @@ export default function HomePage({
     const finalPrice = effectivePrice(product, finalSize, finalColor);
     const item = { ...product, price: finalPrice, selectedColor: finalColor, selectedSize: finalSize, quantity: qty };
     setCheckoutProduct(item);
-    setSelectedProduct(null); setViewProductPage(null);
+    closeQuickView(); setViewProductPage(null);
     setCheckoutStep(1); setShowCheckout(true);
   };
 
@@ -791,7 +826,7 @@ export default function HomePage({
           onSelectColor={setSelectedColor}
           onSelectSize={setSelectedSize}
           onSelectImageIndex={setSelectedImageIndex}
-          onClose={() => setSelectedProduct(null)}
+          onClose={closeQuickView}
           onAddToCart={addToCart}
           onBuyNow={handleBuyNow}
           onViewFullDetails={p => { openProductPage(p); setSelectedProduct(null); }}

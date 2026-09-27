@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createPublicClient } from '@/lib/supabase-public';
+import { createAdminClient } from '@/lib/supabase-admin';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { validateAccountDetails } from '@/lib/order-validation';
 
 function getSupabase() {
-  return createPublicClient();
+  return createAdminClient();
 }
 
 function validateBankAccount(bankType: string, accountNumber: string): string | null {
@@ -29,12 +30,29 @@ export async function POST(req: NextRequest) {
     const { email, password, role = 'customer', name, phone, age, address, website,
       bank_type, bank_name, bank_account_title, bank_account_number, terms_accepted } = body;
 
+    if (!['customer', 'reseller'].includes(role)) {
+      return NextResponse.json({ success: false, message: 'Invalid account type' }, { status: 400 });
+    }
+
     if (!email || !password || !name || !phone || !age || !address) {
       return NextResponse.json({ success: false, message: 'Name, email, password, phone, age and address are required' }, { status: 400 });
     }
 
     if (!terms_accepted) {
       return NextResponse.json({ success: false, message: 'You must accept the Terms & Policy to create an account' }, { status: 400 });
+    }
+
+    try {
+      const proof = jwt.verify(body.verificationProof, process.env.JWT_SECRET!) as {
+        purpose?: string;
+        email?: string;
+        role?: string;
+      };
+      if (proof.purpose !== 'signup' || proof.email !== String(email).toLowerCase().trim() || proof.role !== role) {
+        throw new Error('Signup verification does not match this account');
+      }
+    } catch {
+      return NextResponse.json({ success: false, message: 'Verify your email again before creating your account' }, { status: 401 });
     }
 
     if (password.length < 6) {

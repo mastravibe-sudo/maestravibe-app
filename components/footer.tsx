@@ -104,7 +104,7 @@ const Footer: React.FC = () => {
           <div className="group">
             <div className="flex items-center space-x-2 mb-4">
               <span className="text-2xl font-black tracking-tighter">
-                MAESTRA<span className="text-violet-400">VIBE</span>
+                MAESTRA<span className="text-violet-400"> MARKET</span>
               </span>
               <span className="text-xl">{market === 'pk' ? '🇵🇰' : '🇺🇸'}</span>
             </div>
@@ -195,7 +195,7 @@ const Footer: React.FC = () => {
         {/* Bottom Bar */}
         <div className="mt-16 pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-400 text-sm mb-4 md:mb-0">
-            © <span className="text-violet-400">{new Date().getFullYear()}</span> MaestraVibe {market === 'us' ? 'USA' : 'Pakistan'}. All rights reserved.
+            © <span className="text-violet-400">{new Date().getFullYear()}</span> Maestra Market {market === 'us' ? 'USA' : 'Pakistan'}. All rights reserved.
           </p>
           <div className="flex space-x-6 text-sm">
             <Link href="/policy" className="text-gray-400 hover:text-white transition">Privacy</Link>
@@ -203,6 +203,7 @@ const Footer: React.FC = () => {
             <Link href="/shipping-policy" className="text-gray-400 hover:text-white transition">Shipping</Link>
           </div>
         </div>
+        <p className="mt-5 text-center text-[10px] text-gray-500">Powered by Maestra Vibe</p>
       </div>
 
       <div ref={orbRef} className="orb absolute w-64 h-64 rounded-full bg-gradient-to-r from-violet-500/10 to-purple-500/10 filter blur-3xl pointer-events-none" />

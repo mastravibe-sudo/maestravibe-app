@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-admin';
+import jwt from 'jsonwebtoken';
 
 function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -38,7 +39,13 @@ export async function POST(req: NextRequest) {
 
     await supabase.from('otp_codes').delete().eq('email', normalized);
 
-    return NextResponse.json({ success: true, role: record.role, message: 'Email verified successfully' });
+    const verificationProof = jwt.sign(
+      { purpose: 'signup', email: normalized, role: record.role },
+      process.env.JWT_SECRET!,
+      { expiresIn: '10m' }
+    );
+
+    return NextResponse.json({ success: true, role: record.role, verificationProof, message: 'Email verified successfully' });
   } catch {
     return NextResponse.json({ success: false, message: 'Invalid request' }, { status: 400 });
   }
