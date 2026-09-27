@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { requireAdmin } from '@/lib/auth';
+import { randomUUID } from 'node:crypto';
+import { getSession } from '@/lib/auth';
 
 function getR2Client() {
   const accountId = process.env.R2_ACCOUNT_ID;
@@ -36,7 +37,8 @@ function sanitizeFileName(fileName: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    if (!(await requireAdmin())) {
+    const session = await getSession();
+    if (!session || !['admin', 'supplier'].includes(session.role)) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
@@ -49,12 +51,23 @@ export async function POST(req: NextRequest) {
 
     const rawFileName = req.headers.get('x-file-name') || `image_${Date.now()}.jpg`;
     const fileType = req.headers.get('x-file-type') || 'image/jpeg';
+    const allowedTypes = new Set(['image/webp', 'image/jpeg', 'image/png']);
+    if (!allowedTypes.has(fileType)) {
+      return NextResponse.json({ message: 'Only WebP, JPEG, and PNG images are supported.' }, { status: 415 });
+    }
 
     const cleanName = sanitizeFileName(rawFileName);
-    const uniqueName = `images/${Date.now()}_${cleanName}`;
+    const prefix = session.role === 'supplier' ? `supplier/${session.id}` : 'images';
+    const uniqueName = `${prefix}/${Date.now()}_${randomUUID()}_${cleanName}`;
 
     const arrayBuffer = await req.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    if (buffer.length === 0) {
+      return NextResponse.json({ message: 'No image was uploaded.' }, { status: 400 });
+    }
+    if (buffer.length > 100 * 1024) {
+      return NextResponse.json({ message: 'Compressed image must be 100KB or smaller.' }, { status: 413 });
+    }
 
     await r2.send(
       new PutObjectCommand({

@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/auth';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+
 export async function GET(req: NextRequest) {
   try {
     const supabase = createAdminClient();
@@ -104,7 +106,7 @@ export async function PATCH(req: NextRequest) {
 
     // Approval/rejection is admin-only; audit fields are stamped server-side.
     if (body.approval_status === 'approved' || body.approval_status === 'rejected') {
-      body.approved_by = body.approval_status === 'approved' ? session.id : null;
+      body.approved_by = body.approval_status === 'approved' && UUID_PATTERN.test(session.id) ? session.id : null;
       body.approved_at = body.approval_status === 'approved' ? new Date().toISOString() : null;
     }
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase';
+import { createAdminClient } from '@/lib/supabase-admin';
 import { getSession } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 type SupplierSession = { id: string; email: string; role: string };
 
@@ -16,7 +18,7 @@ export async function GET(req: NextRequest) {
   const supplier = await getSupplier();
   if (!supplier) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const supabase = createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('products')
     .select('*')
@@ -24,7 +26,7 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+  return NextResponse.json(data ?? [], { headers: { 'Cache-Control': 'no-store, max-age=0' } });
 }
 
 // ── Create a new product — always starts pending, always tagged to this supplier ──
@@ -34,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
 
-  const supabase = createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('products')
     .insert([{
@@ -66,7 +68,7 @@ export async function PATCH(req: NextRequest) {
   const { id, ...updates } = body;
   if (!id) return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
 
-  const supabase = createClient();
+  const supabase = createAdminClient();
 
   const { data: existing, error: fetchErr } = await supabase
     .from('products').select('supplier_id, market_availability').eq('id', id).single();
@@ -100,7 +102,7 @@ export async function DELETE(req: NextRequest) {
   const id = searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Product ID is required' }, { status: 400 });
 
-  const supabase = createClient();
+  const supabase = createAdminClient();
   const { data: existing } = await supabase.from('products').select('supplier_id').eq('id', id).single();
   if (!existing) return NextResponse.json({ error: 'Product not found' }, { status: 404 });
   if (existing.supplier_id !== supplier.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

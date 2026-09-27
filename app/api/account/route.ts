@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       .insert([{
         email: normalized, name: cleanName, role, phone: cleanPhone, age: ageNum, address: cleanAddress, website: website || '',
         bank_type, bank_name, bank_account_title, bank_account_number,
-        password_hash, status, terms_accepted: true,
+        password_hash, status, approval_status: status, terms_accepted: true,
         cnic_image_url: cnic_image_url || null, // ✅ FIX: now actually saved
       }])
       .select('id, email, name, role, status')

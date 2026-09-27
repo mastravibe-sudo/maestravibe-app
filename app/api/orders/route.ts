@@ -40,12 +40,33 @@ export async function GET(req: NextRequest) {
     // supplier orders, items carry their own supplier_id inside the JSON —
     // filtered in-memory here since nested JSON containment queries are
     // awkward with the client used across this project.
-    const mineOrders = (data ?? []).filter((o: any) =>
-      o.supplier_id === session.id ||
-      (Array.isArray(o.items) && o.items.some((it: any) => it.supplier_id === session.id))
-    );
+    const mineOrders = (data ?? []).flatMap((order: any) => {
+      const items = Array.isArray(order.items)
+        ? order.items.filter((item: any) => item.supplier_id === session.id)
+        : [];
+      if (order.supplier_id !== session.id && items.length === 0) return [];
 
-    return NextResponse.json(mineOrders);
+      const customer = order.customer ?? {};
+      return [{
+        id: order.id,
+        created_at: order.created_at,
+        status: order.status,
+        supplier_status: order.supplier_status,
+        items,
+        supplier_total: items.reduce(
+          (sum: number, item: any) => sum + Number(item.price ?? 0) * Number(item.quantity ?? 1),
+          0
+        ),
+        customer: {
+          name: customer.name,
+          phone: customer.phone,
+          city: customer.city,
+          address: customer.address,
+        },
+      }];
+    });
+
+    return NextResponse.json(mineOrders, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal server error';
     return NextResponse.json({ message }, { status: 500 });

@@ -55,10 +55,16 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'status must be approved, rejected, or pending' }, { status: 400 });
   }
 
+  const accountStatus = status === 'rejected' ? 'suspended' : status;
+  const approvalStatus = status === 'rejected' ? 'rejected' : status;
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('accounts')
-    .update({ status, rejection_reason: status === 'rejected' ? (rejection_reason ?? null) : null })
+    .update({
+      status: accountStatus,
+      approval_status: approvalStatus,
+      rejection_reason: status === 'rejected' ? (rejection_reason ?? null) : null,
+    })
     .eq('id', id)
     .eq('role', 'supplier')
     .select()
