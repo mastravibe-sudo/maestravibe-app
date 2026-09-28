@@ -1,130 +1,107 @@
-'use client';
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import JsonLd from '@/components/JsonLd';
+import ProductPageClient from '@/components/ProductPageClient';
+import { getApprovedProduct } from '@/lib/seo-data';
+import { categorySlug, SITE_URL } from '@/lib/seo';
 
-// app/product/[id]/page.tsx
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import type { Product } from '@/lib/supabase';
-import { addToCart } from '@/components/Cart';
+type ProductPageProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
-export default function ProductPage() {
-  const { id } = useParams<{ id: string }>();
-  const [product,       setProduct]       = useState<Product | null>(null);
-  const [loading,       setLoading]       = useState(true);
-  const [activeImage,   setActiveImage]   = useState(0);
-  const [selectedColor, setSelectedColor] = useState('');
-  const [selectedSize,  setSelectedSize]  = useState('');
-  const [added,         setAdded]         = useState(false);
+const getDescription = (name: string, description?: string) =>
+  description?.trim().slice(0, 160) || `${name} from MaestraVibe. Browse product details and order online.`;
 
-  useEffect(() => {
-    if (!id) return;
-    fetch(`/api/products/${id}`)
-      .then((r) => r.json())
-      .then((d) => setProduct(d.data ?? null))
-      .finally(() => setLoading(false));
-  }, [id]);
+export async function generateMetadata({ params, searchParams }: ProductPageProps): Promise<Metadata> {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const product = await getApprovedProduct(id);
+  if (!product) return { title: 'Product Not Found', robots: { index: false, follow: false } };
 
-  if (loading) return <div className="text-center py-20 text-gray-400">Loading...</div>;
-  if (!product) return <div className="text-center py-20 text-gray-500">Product not found.</div>;
+  const description = getDescription(product.name, product.description);
+  const canonical = `/products/${encodeURIComponent(product.id)}`;
+  const image = product.images?.[0] || '/icons/icon-512.png';
+  const checkoutOpen = Array.isArray(query.checkout) ? query.checkout.includes('1') : query.checkout === '1';
 
-  const handleAddToCart = () => {
-    addToCart(product, selectedColor || undefined, selectedSize || undefined);
-    setAdded(true);
-    setTimeout(() => setAdded(false), 2000);
+  return {
+    title: product.name,
+    description,
+    alternates: { canonical },
+    robots: checkoutOpen ? { index: false, follow: false } : { index: true, follow: true },
+    openGraph: {
+      type: 'website',
+      title: product.name,
+      description,
+      url: canonical,
+      siteName: 'MaestraVibe',
+      images: [{ url: image, alt: product.name }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: product.name,
+      description,
+      images: [image],
+    },
+    other: {
+      'product:price:amount': Number(product.price).toFixed(2),
+      'product:price:currency': 'PKR',
+    },
   };
+}
+
+export default async function ProductPage({ params }: ProductPageProps) {
+  const { id } = await params;
+  const product = await getApprovedProduct(id);
+  if (!product) notFound();
+
+  const categoryPath = `/categories/${categorySlug(product.category)}`;
+  const productUrl = new URL(`/products/${encodeURIComponent(product.id)}`, SITE_URL).toString();
+  const sku = (product as typeof product & { sku?: string }).sku || product.id;
+  const stock = (product as typeof product & { stock?: number | null }).stock;
+  const variants = product.variants ?? [];
+  const outOfStock = stock === 0 || (variants.length > 0 && variants.every(variant => variant.stock === 0));
+  const images = product.images?.length ? product.images : [new URL('/icons/icon-512.png', SITE_URL).toString()];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 md:px-8 py-10">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-
-        {/* Images */}
-        <div>
-          <div className="aspect-square rounded-2xl bg-gray-50 overflow-hidden mb-3">
-            {product.images?.[activeImage] ? (
-              <img src={product.images[activeImage]} alt={product.name} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-6xl text-gray-200">🧥</div>
-            )}
-          </div>
-          {product.images?.length > 1 && (
-            <div className="flex gap-2">
-              {product.images.map((img, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveImage(i)}
-                  className={`w-16 h-16 rounded-lg overflow-hidden border-2 ${
-                    activeImage === i ? 'border-purple-500' : 'border-transparent'
-                  }`}
-                >
-                  <img src={img} alt="" className="w-full h-full object-cover" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Info */}
-        <div>
-          <span className="text-xs text-purple-500 font-semibold uppercase tracking-widest">
-            {product.category}
-          </span>
-          <h1 className="text-3xl font-bold text-gray-900 mt-2 mb-3">{product.name}</h1>
-          <p className="text-3xl font-bold text-purple-700 mb-4">
-            Rs. {Number(product.price).toLocaleString()}
-          </p>
-          {product.description && (
-            <p className="text-gray-500 text-sm mb-6 leading-relaxed">{product.description}</p>
-          )}
-
-          {/* Colors */}
-{(product.colors?.length ?? 0) > 0 && (            <div className="mb-4">
-              <p className="text-sm font-medium text-gray-700 mb-2">Color</p>
-              <div className="flex gap-2 flex-wrap">
-{(product.colors ?? []).map((c) => (                  <button
-                    key={c}
-                    onClick={() => setSelectedColor(c)}
-                    className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                      selectedColor === c
-                        ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium'
-                        : 'border-gray-200 text-gray-600 hover:border-purple-300'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Sizes */}
-{(product.sizes?.length ?? 0) > 0 && (            <div className="mb-6">
-              <p className="text-sm font-medium text-gray-700 mb-2">Size</p>
-              <div className="flex gap-2 flex-wrap">
-{(product.sizes ?? []).map((s) => (                  <button
-                    key={s}
-                    onClick={() => setSelectedSize(s)}
-                    className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-                      selectedSize === s
-                        ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium'
-                        : 'border-gray-200 text-gray-600 hover:border-purple-300'
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <button
-            onClick={handleAddToCart}
-            className={`w-full py-4 rounded-xl font-semibold text-white transition-all ${
-              added ? 'bg-green-500' : 'bg-purple-600 hover:bg-purple-700'
-            }`}
-          >
-            {added ? '✓ Added to Cart' : 'Add to Cart'}
-          </button>
-        </div>
-      </div>
-    </div>
+    <main>
+      <JsonLd data={{
+        '@context': 'https://schema.org',
+        '@type': 'Product',
+        name: product.name,
+        image: images,
+        description: getDescription(product.name, product.description),
+        sku,
+        brand: { '@type': 'Brand', name: product.merchant_name || 'MaestraVibe' },
+        offers: {
+          '@type': 'Offer',
+          url: productUrl,
+          priceCurrency: 'PKR',
+          price: Number(product.price).toFixed(2),
+          availability: `https://schema.org/${outOfStock ? 'OutOfStock' : 'InStock'}`,
+        },
+      }} />
+      <JsonLd data={{
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL.toString() },
+          { '@type': 'ListItem', position: 2, name: product.category, item: new URL(categoryPath, SITE_URL).toString() },
+          { '@type': 'ListItem', position: 3, name: product.name, item: productUrl },
+        ],
+      }} />
+      <nav aria-label="Breadcrumb" className="max-w-6xl mx-auto px-4 md:px-8 py-5 text-sm text-gray-500">
+        <ol className="flex flex-wrap items-center gap-2">
+          <li><Link href="/" className="hover:text-purple-700">Home</Link></li>
+          <li aria-hidden="true">/</li>
+          <li><Link href={categoryPath} className="capitalize hover:text-purple-700">{product.category}</Link></li>
+          <li aria-hidden="true">/</li>
+          <li aria-current="page" className="line-clamp-1 text-gray-700">{product.name}</li>
+        </ol>
+      </nav>
+      <meta property="product:price:amount" content={Number(product.price).toFixed(2)} />
+      <meta property="product:price:currency" content="PKR" />
+      <ProductPageClient product={product} />
+    </main>
   );
 }

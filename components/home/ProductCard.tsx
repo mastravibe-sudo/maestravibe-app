@@ -1,6 +1,9 @@
 // components/home/ProductCard.tsx
 'use client';
 
+import Image from 'next/image';
+import Link from 'next/link';
+import type { MouseEvent } from 'react';
 import { formatPrice } from '@/lib/home/helpers';
 import { CartIco, CheckIco, EyeIco, FestIco, HeartIco, StarIco } from './icons';
 
@@ -44,32 +47,40 @@ export default function ProductCard({
   onOpenPage, onQuickView, onAddToCart, onToggleWish,
 }: ProductCardProps) {
   const isAdded = addedToCart === product._id;
+  const productHref = `/products/${encodeURIComponent(product._id ?? product.id)}`;
+  const openProduct = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    onOpenPage(product);
+  };
 
   return (
     <div className="group flex flex-col bg-white dark:bg-neutral-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-neutral-800 transition-all duration-300 hover:shadow-lg hover:shadow-gray-200/70 dark:hover:shadow-none dark:hover:border-neutral-700">
-      <div
-        className="relative overflow-hidden cursor-pointer bg-[#F6F4F0] dark:bg-neutral-800"
-        style={{ aspectRatio: '1 / 1' }}
-        onClick={() => onOpenPage(product)}
-      >
-        <img
-          src={product.images?.[0] ?? 'https://via.placeholder.com/400'}
-          className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-500"
-          alt={product.name}
-        />
+      <div className="relative overflow-hidden bg-[#F6F4F0] dark:bg-neutral-800" style={{ aspectRatio: '1 / 1' }}>
+        <Link href={productHref} onClick={openProduct} className="absolute inset-0 block" aria-label={`View ${product.name}`}>
+          {product.images?.[0] ? (
+            <Image
+              src={product.images[0]}
+              alt={`${product.name} product photo`}
+              fill
+              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            />
+          ) : <span className="flex h-full items-center justify-center text-gray-400">Image unavailable</span>}
 
-        <div className="absolute top-3 left-3 flex flex-col gap-1 max-w-[70%]">
-          <span className="bg-white/85 dark:bg-neutral-900/85 backdrop-blur-sm text-gray-600 dark:text-gray-300 text-[10px] uppercase tracking-wide px-2.5 py-1 rounded-full font-semibold capitalize shadow-sm w-fit">
-            {product.category}
-          </span>
-          <ProductBadges product={product} />
-        </div>
+          <div className="absolute top-3 left-3 flex max-w-[70%] flex-col gap-1">
+            <span className="w-fit rounded-full bg-white/85 px-2.5 py-1 text-[10px] font-semibold uppercase text-gray-600 shadow-sm dark:bg-neutral-900/85 dark:text-gray-300">
+              {product.category}
+            </span>
+            <ProductBadges product={product} />
+          </div>
 
-        {Number.isFinite(product.discount_percent) && product.discount_percent > 0 && (
-          <span className="absolute top-3 right-3 bg-rose-500 text-white text-[10px] font-black px-2 py-1 rounded-full shadow-sm">
-            {product.discount_percent}% OFF
-          </span>
-        )}
+          {Number.isFinite(product.discount_percent) && product.discount_percent > 0 && (
+            <span className="absolute top-3 right-3 rounded-full bg-rose-500 px-2 py-1 text-[10px] font-black text-white shadow-sm">
+              {product.discount_percent}% OFF
+            </span>
+          )}
+        </Link>
 
         {/* Wishlist + quick-view — revealed on hover, kept out of the way otherwise */}
         <div className="absolute bottom-3 left-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0">
@@ -100,11 +111,10 @@ export default function ProductCard({
       </div>
 
       <div className="p-4 flex flex-col flex-1">
-        <h3
-          onClick={() => onOpenPage(product)}
-          className="font-medium text-sm mb-1.5 line-clamp-2 cursor-pointer hover:text-violet-600 dark:hover:text-violet-400 transition-colors text-gray-800 dark:text-gray-100"
-        >
-          {product.name}
+        <h3 className="font-medium text-sm mb-1.5 line-clamp-2 text-gray-800 dark:text-gray-100">
+          <Link href={productHref} onClick={openProduct} className="hover:text-violet-600 dark:hover:text-violet-400 transition-colors">
+            {product.name}
+          </Link>
         </h3>
 
         <div className="flex items-center gap-1 mb-2">

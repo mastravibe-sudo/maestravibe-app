@@ -2,8 +2,9 @@
 
 import { Suspense } from 'react';
 import HomePage from '@/components/ClientHome';
+import type { Product } from '@/lib/supabase';
 
-export default function HomePageWithSearch() {
+export default function HomePageWithSearch({ initialProducts }: { initialProducts: Product[] }) {
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
@@ -11,7 +12,7 @@ export default function HomePageWithSearch() {
         <p className="text-gray-500 text-sm font-medium">Loading MaestraVibe...</p>
       </div>
     </div>}>
-      <HomePage />
+      <HomePage initialProducts={initialProducts} />
     </Suspense>
   );
 }

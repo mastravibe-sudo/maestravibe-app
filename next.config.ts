@@ -7,10 +7,18 @@ const nextConfig = {
         hostname: 'uvnvwlmfbcgboppxdchf.supabase.co',
         pathname: '/storage/v1/object/public/**',
       },
-      // keep any other remotePatterns / domains you already had here
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'pub-3d52638c94c44015864af0236f150ab8.r2.dev',
+        pathname: '/**',
+      },
     ],
   },
-  // ...rest of your existing config
 };
 
 module.exports = nextConfig;

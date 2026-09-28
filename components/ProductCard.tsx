@@ -18,7 +18,7 @@ export default function ProductCard({ product, onAddToCart }: Props) {
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
 
       {/* Image */}
-      <Link href={`/product/${product.id}`}>
+      <Link href={`/products/${encodeURIComponent(product.id)}`}>
         <div className="aspect-square bg-gray-50 overflow-hidden">
           {image ? (
             <img
@@ -40,7 +40,7 @@ export default function ProductCard({ product, onAddToCart }: Props) {
           {product.category}
         </span>
         
-        <Link href={`/product/${product.id}`}>
+        <Link href={`/products/${encodeURIComponent(product.id)}`}>
           <h3 className="text-gray-800 font-semibold mt-1 hover:text-purple-700 transition-colors line-clamp-2">
             {product.name}
           </h3>

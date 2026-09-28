@@ -1,6 +1,8 @@
 // components/home/CheckoutFlow.tsx
 'use client';
 
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { formatPrice } from '@/lib/home/helpers';
 import type { CustomerInfo, DetectedLocation, MarketConfigEntry } from '@/lib/home/types';
 import { PK_CITIES, US_CITIES } from '@/lib/order-validation';
@@ -36,6 +38,12 @@ export default function CheckoutFlow({
   onBack, onClose, onContinueToDelivery, onContinueToConfirm,
   onDetectLocation, onConfirmLocation, onDismissLocation, onCustomerInfoChange, onSubmit,
 }: CheckoutFlowProps) {
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setPortalRoot(document.body);
+  }, []);
+
   const inputCls = 'w-full p-3.5 border-2 border-gray-200 rounded-xl focus:border-violet-500 focus:outline-none text-sm transition-colors bg-white';
 
   const fields = [
@@ -55,8 +63,10 @@ export default function CheckoutFlow({
     .filter(Boolean)
     .join(', ');
 
-  return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-end md:items-center justify-center">
+  if (!portalRoot) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/80 flex items-end md:items-center justify-center" style={{ zIndex: 1000 }}>
       <div className="bg-white w-full md:max-w-lg rounded-t-3xl md:rounded-3xl max-h-[96vh] flex flex-col overflow-hidden">
         <div className="p-5 border-b flex items-center justify-between shrink-0 bg-white">
           <div className="flex items-center gap-3">
@@ -246,6 +256,7 @@ export default function CheckoutFlow({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    portalRoot,
   );
 }

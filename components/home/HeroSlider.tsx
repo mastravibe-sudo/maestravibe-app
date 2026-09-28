@@ -1,6 +1,7 @@
 // components/home/HeroSlider.tsx
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import type { Slide } from '@/lib/home/types';
 import { ChevL, ChevR } from './icons';
@@ -8,9 +9,12 @@ import { ChevL, ChevR } from './icons';
 function SlideImage({ src, fallback, alt }: { src: string; fallback?: string; alt: string }) {
   const [current, setCurrent] = useState(src);
   return (
-    <img
+    <Image
       src={current}
       alt={alt}
+      fill
+      priority
+      sizes="100vw"
       className="w-full h-full object-cover"
       onError={() => { if (fallback && current !== fallback) setCurrent(fallback); }}
     />
@@ -34,7 +38,9 @@ export default function HeroSlider({ slides, currentSlide, setCurrentSlide, onNa
           <div className="absolute inset-0 flex items-center px-8 md:px-20">
             <div className="max-w-lg">
               {slide.tag && <span className="inline-block bg-violet-500/30 backdrop-blur-sm text-violet-200 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3">{slide.tag}</span>}
-              <h2 className="text-white text-4xl md:text-6xl font-black leading-tight mb-2">{slide.title}</h2>
+              {i === 0
+                ? <h1 className="text-white text-4xl md:text-6xl font-black leading-tight mb-2">{slide.title}</h1>
+                : <h2 className="text-white text-4xl md:text-6xl font-black leading-tight mb-2">{slide.title}</h2>}
               {slide.sub && <p className="text-white/75 text-sm mb-8">{slide.sub}</p>}
               <div className="flex gap-3">
                 <button onClick={() => onNavigate(slide.buttonLink === 'all' ? 'all' : slide.buttonLink)} className="bg-violet-600 hover:bg-violet-500 active:scale-95 text-white px-8 py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-violet-600/40">{slide.buttonLabel}</button>

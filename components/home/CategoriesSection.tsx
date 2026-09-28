@@ -1,8 +1,11 @@
 // components/home/CategoriesSection.tsx
 'use client';
 
+import Image from 'next/image';
+import Link from 'next/link';
 import { useState } from 'react';
 import type { CategoryForGrid } from '@/lib/home/types';
+import { categorySlug } from '@/lib/seo';
 import { ChevL, ChevR } from './icons';
 
 interface CategoriesSectionProps {
@@ -28,17 +31,21 @@ export default function CategoriesSection({ categories, onNavigate }: Categories
       <div className="overflow-hidden">
         <div className="flex gap-4 transition-transform duration-500" style={{ transform: `translateX(-${catSlide * (100 / 4)}%)` }}>
           {categories.map(cat => (
-            <div key={cat.value} onClick={() => onNavigate(cat.value)} className="shrink-0 cursor-pointer group rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-xl transition-all duration-300" style={{ width: 'calc(25% - 12px)' }}>
+            <Link key={cat.value} href={`/categories/${categorySlug(cat.value)}`} onClick={event => {
+              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault();
+              onNavigate(cat.value);
+            }} className="shrink-0 cursor-pointer group rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-xl transition-all duration-300" style={{ width: 'calc(25% - 12px)' }}>
               <div className="relative overflow-hidden" style={{ height: '160px' }}>
                 {cat.image
-                  ? <img src={cat.image} alt={cat.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ? <Image src={cat.image} alt={`${cat.label} collection`} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
                   : <div className="w-full h-full flex items-center justify-center bg-violet-50 text-5xl">{cat.emoji || '🛍️'}</div>
                 }
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                 <div className="absolute bottom-3 left-3"><p className="text-white font-black text-base">{cat.emoji} {cat.label}</p></div>
               </div>
               <div className="p-3 flex items-center justify-between"><span className="text-xs text-gray-500">Explore collection</span><ChevR /></div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

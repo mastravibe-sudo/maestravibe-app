@@ -1,12 +1,14 @@
 // components/home/ProductDetailPage.tsx
 'use client';
 
-import AIChat from '@/components/AIChat';
+import dynamic from 'next/dynamic';
 import { findVariant, formatPrice } from '@/lib/home/helpers';
 import type { MarketConfigEntry } from '@/lib/home/types';
 import ProductCard from './ProductCard';
 import { ProductBadges } from './ProductCard';
 import { CartIco, StarIco } from './icons';
+
+const LazyAIChat = dynamic(() => import('@/components/AIChat'), { ssr: false });
 
 interface ProductDetailPageProps {
   product: any;
@@ -251,7 +253,7 @@ export default function ProductDetailPage({
         )}
       </div>
 
-      <AIChat
+      <LazyAIChat
         products={chatProducts}
         onOpenProduct={onOpenPage}
         onAddToCart={onAddToCart}

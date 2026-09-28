@@ -32,6 +32,11 @@ async function detectMarket(request: NextRequest): Promise<'pk' | 'us'> {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const response = NextResponse.next();
+
+  if (request.nextUrl.searchParams.get('checkout') === '1') {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
 
   // Skip static files, api routes, and next internals
   if (
@@ -40,10 +45,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/favicon') ||
     pathname.includes('.')
   ) {
-    return NextResponse.next();
+    return response;
   }
 
-  const response = NextResponse.next();
   const existingMarket = request.cookies.get(COOKIE_NAME)?.value;
 
   if (!existingMarket || !['pk', 'us'].includes(existingMarket)) {

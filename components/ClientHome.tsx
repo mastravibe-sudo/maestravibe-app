@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { useSearchParams, useRouter } from 'next/navigation'; // ✅ NEW
 import { useMarket } from '@/lib/market-context';
 
-import AIChat from '@/components/AIChat';
+const AIChat = dynamic(() => import('@/components/AIChat'), { ssr: false });
 
 import {
   DEFAULT_SETTINGS, FALLBACK_CATEGORIES, FALLBACK_SLIDES,
@@ -42,6 +44,7 @@ import { ShieldIco, TruckIco } from '@/components/home/icons';
 
 // ── HomePageProps ─────────────────────────────────────────────────────────────
 interface HomePageProps {
+  initialProducts?: any[];
   cartCount?: number;
   onCartCountChange?: React.Dispatch<React.SetStateAction<number>>;
   showCart?: boolean;
@@ -49,6 +52,7 @@ interface HomePageProps {
 }
 
 export default function HomePage({
+  initialProducts,
   cartCount,
   onCartCountChange,
   showCart: showCartProp = false,
@@ -65,8 +69,8 @@ export default function HomePage({
 
   const [view, setView] = useState('home');
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [allProducts, setAllProducts] = useState<any[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
+  const [allProducts, setAllProducts] = useState<any[]>(initialProducts ?? []);
+  const [productsLoading, setProductsLoading] = useState(initialProducts === undefined);
 
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(DEFAULT_SETTINGS);
 
@@ -189,7 +193,9 @@ export default function HomePage({
     } catch { console.error('Products load failed'); }
     finally { setProductsLoading(false); }
   }, []);
-  useEffect(() => { loadProducts(); }, [loadProducts]);
+  useEffect(() => {
+    if (initialProducts === undefined) loadProducts();
+  }, [initialProducts, loadProducts]);
 
   // ── Derived: filters (memoized — these used to recompute on every render,
   // including renders caused by unrelated state like sidebarOpen/cart/etc.
@@ -342,6 +348,10 @@ export default function HomePage({
   };
 
   useEffect(() => {
+    setShowCheckout(searchParams.get('checkout') === '1');
+  }, [searchParams]);
+
+  useEffect(() => {
     const urlSearch = searchParams.get('search');
     const urlCategory = searchParams.get('category');
     const urlOpenProduct = searchParams.get('openProduct');
@@ -403,8 +413,37 @@ export default function HomePage({
     const finalPrice = effectivePrice(product, finalSize, finalColor);
     const item = { ...product, price: finalPrice, selectedColor: finalColor, selectedSize: finalSize, quantity: qty };
     setCheckoutProduct(item);
-    closeQuickView(); setViewProductPage(null);
-    setCheckoutStep(1); setShowCheckout(true);
+    setSelectedProduct(null);
+    suppressQuickViewRef.current = true;
+    setCheckoutStep(1);
+    setShowCheckout(true);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('quickView');
+    params.set('checkout', '1');
+    router.push(`/?${params.toString()}`, { scroll: false });
+  };
+
+  const closeCheckout = () => {
+    setShowCheckout(false);
+    setCheckoutProduct(null);
+    setPendingLocation(null);
+    const params = new URLSearchParams(searchParams.toString());
+    if (params.has('checkout')) {
+      params.delete('checkout');
+      const query = params.toString();
+      router.replace(query ? `/?${query}` : '/', { scroll: false });
+    }
+  };
+
+  const startCartCheckout = () => {
+    setCheckoutProduct(null);
+    setCheckoutStep(1);
+    setShowCart(false);
+    setShowCheckout(true);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('quickView');
+    params.set('checkout', '1');
+    router.push(`/?${params.toString()}`, { scroll: false });
   };
 
   const toggleWish = (id: string) => setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -523,7 +562,7 @@ export default function HomePage({
         throw new Error(fields || responseData.message || 'Order failed');
       }
       playSound();
-      setShowCheckout(false); setCheckoutProduct(null); setCart([]);
+      closeCheckout(); setCart([]);
       setCustomerInfo({
         name: '', email: '', phone: '', address: '', city: '', area: '',
         district: '', block: '', locationLink: undefined, lat: undefined, lng: undefined,
@@ -547,36 +586,69 @@ export default function HomePage({
     }))
   ), [allProducts]);
 
+  const checkoutOverlay = showCheckout && (
+    <CheckoutFlow
+      checkoutStep={checkoutStep}
+      checkoutItems={checkoutItems}
+      orderTotal={orderTotal}
+      deliveryCharge={deliveryCharge}
+      grandTotal={grandTotal}
+      market={market}
+      marketCfg={marketCfg}
+      isPK={isPK}
+      customerInfo={customerInfo}
+      pendingLocation={pendingLocation}
+      locationLoading={locationLoading}
+      orderLoading={orderLoading}
+      onBack={() => {
+        if (checkoutStep === 3) { setCheckoutStep(2); return; }
+        if (checkoutStep === 2) { setCheckoutStep(1); return; }
+        closeCheckout();
+      }}
+      onClose={closeCheckout}
+      onContinueToDelivery={() => setCheckoutStep(2)}
+      onContinueToConfirm={() => setCheckoutStep(3)}
+      onDetectLocation={detectLocation}
+      onConfirmLocation={confirmDetectedLocation}
+      onDismissLocation={dismissDetectedLocation}
+      onCustomerInfoChange={setCustomerInfo}
+      onSubmit={submitOrder}
+    />
+  );
+
   // ─ FULL PRODUCT PAGE ─
   if (viewProductPage) {
     return (
-      <ProductDetailPage
-        product={viewProductPage}
-        allProducts={allProducts}
-        market={market}
-        marketCfg={marketCfg}
-        isPK={isPK}
-        selectedColor={selectedColor}
-        selectedSize={selectedSize}
-        selectedImageIndex={selectedImageIndex}
-        quantity={quantity}
-        wishlist={wishlist}
-        addedToCart={addedToCart}
-        cart={cart}
-        chatProducts={chatProducts}
-        onSelectColor={setSelectedColor}
-        onSelectSize={setSelectedSize}
-        onSelectImageIndex={setSelectedImageIndex}
-        onQuantityChange={setQuantity}
-        onGoHome={() => { setViewProductPage(null); setView('home'); }}
-        onNavigateCategory={cat => navigateTo(cat)}
-        onAddToCart={addToCart}
-        onBuyNow={handleBuyNow}
-        onOpenProduct={openProduct}
-        onToggleWish={toggleWish}
-        onOpenPage={openProductPage}
-        onQuickView={openProduct}
-      />
+      <>
+        <ProductDetailPage
+          product={viewProductPage}
+          allProducts={allProducts}
+          market={market}
+          marketCfg={marketCfg}
+          isPK={isPK}
+          selectedColor={selectedColor}
+          selectedSize={selectedSize}
+          selectedImageIndex={selectedImageIndex}
+          quantity={quantity}
+          wishlist={wishlist}
+          addedToCart={addedToCart}
+          cart={cart}
+          chatProducts={chatProducts}
+          onSelectColor={setSelectedColor}
+          onSelectSize={setSelectedSize}
+          onSelectImageIndex={setSelectedImageIndex}
+          onQuantityChange={setQuantity}
+          onGoHome={() => { setViewProductPage(null); setView('home'); }}
+          onNavigateCategory={cat => navigateTo(cat)}
+          onAddToCart={addToCart}
+          onBuyNow={handleBuyNow}
+          onOpenProduct={openProduct}
+          onToggleWish={toggleWish}
+          onOpenPage={openProductPage}
+          onQuickView={openProduct}
+        />
+        {checkoutOverlay}
+      </>
     );
   }
 
@@ -729,12 +801,12 @@ export default function HomePage({
           <section className="py-8 max-w-7xl mx-auto px-4">
             <div className="grid md:grid-cols-2 gap-5">
               <div onClick={() => navigateTo('women')} className="relative cursor-pointer rounded-3xl overflow-hidden group" style={{ height: '200px' }}>
-                <img src="https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=800&auto=format&fit=crop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Women's Collection" loading="lazy" decoding="async" />
+                <Image src="https://images.unsplash.com/photo-1581044777550-4cfa60707c03?w=800&auto=format&fit=crop" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover group-hover:scale-105 transition-transform duration-500" alt="Women's clothing collection" loading="lazy" />
                 <div className="absolute inset-0 bg-gradient-to-r from-violet-900/70 to-violet-900/20" />
                 <div className="absolute inset-0 flex items-center px-8"><div><p className="text-violet-200 text-xs font-bold uppercase tracking-widest">New Arrivals</p><h3 className="text-white text-3xl font-black">Women's Collection</h3><button className="mt-3 bg-white text-violet-700 px-5 py-2 rounded-xl text-sm font-bold hover:bg-violet-50 transition-colors">Shop Now</button></div></div>
               </div>
               <div onClick={() => navigateTo('men')} className="relative cursor-pointer rounded-3xl overflow-hidden group" style={{ height: '200px' }}>
-                <img src="https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?w=800&auto=format&fit=crop" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt="Men's Styles" loading="lazy" decoding="async" />
+                <Image src="https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?w=800&auto=format&fit=crop" fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover group-hover:scale-105 transition-transform duration-500" alt="Men's clothing collection" loading="lazy" />
                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/70 to-indigo-900/20" />
                 <div className="absolute inset-0 flex items-center px-8"><div><p className="text-indigo-200 text-xs font-bold uppercase tracking-widest">Trending</p><h3 className="text-white text-3xl font-black">Men's Styles</h3><button className="mt-3 bg-white text-indigo-700 px-5 py-2 rounded-xl text-sm font-bold hover:bg-indigo-50 transition-colors">Shop Now</button></div></div>
               </div>
@@ -843,39 +915,11 @@ export default function HomePage({
           onUpdateQuantity={(index, updater) => setCart(p => p.map((x, i) => i === index ? updater(x) : x))}
           onRemove={index => setCart(p => p.filter((_, i) => i !== index))}
           onStartShopping={() => { setShowCart(false); navigateTo(); }}
-          onCheckout={() => { setCheckoutProduct(null); setCheckoutStep(1); setShowCart(false); setShowCheckout(true); }}
+          onCheckout={startCartCheckout}
         />
       )}
 
-      {showCheckout && (
-        <CheckoutFlow
-          checkoutStep={checkoutStep}
-          checkoutItems={checkoutItems}
-          orderTotal={orderTotal}
-          deliveryCharge={deliveryCharge}
-          grandTotal={grandTotal}
-          market={market}
-          marketCfg={marketCfg}
-          isPK={isPK}
-          customerInfo={customerInfo}
-          pendingLocation={pendingLocation}
-          locationLoading={locationLoading}
-          orderLoading={orderLoading}
-          onBack={() => {
-            if (checkoutStep === 3) { setCheckoutStep(2); return; }
-            if (checkoutStep === 2) { setCheckoutStep(1); return; }
-            setShowCheckout(false); setCheckoutProduct(null);
-          }}
-          onClose={() => { setShowCheckout(false); setCheckoutProduct(null); setPendingLocation(null); }}
-          onContinueToDelivery={() => setCheckoutStep(2)}
-          onContinueToConfirm={() => setCheckoutStep(3)}
-          onDetectLocation={detectLocation}
-          onConfirmLocation={confirmDetectedLocation}
-          onDismissLocation={dismissDetectedLocation}
-          onCustomerInfoChange={setCustomerInfo}
-          onSubmit={submitOrder}
-        />
-      )}
+      {checkoutOverlay}
 
       {showSuccess && <OrderSuccessModal isPK={isPK} onClose={() => setShowSuccess(false)} />}
 

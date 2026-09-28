@@ -69,6 +69,11 @@ export default function ShopView({
           {searchQuery && ` — "${searchQuery}"`}
         </span>
       </div>
+      <header className="max-w-7xl mx-auto px-4 pb-4">
+        <h1 className="text-2xl font-black text-gray-900">
+          {activeCategory !== 'all' ? `${categoriesForFilter.find(c => c.value === activeCategory)?.label ?? activeCategory} Products` : 'Shop All Products'}
+        </h1>
+      </header>
       <div className="max-w-7xl mx-auto px-4 pb-4">
         <form onSubmit={onSearchSubmit} className="flex gap-2">
           <div className="relative flex-1 max-w-lg">

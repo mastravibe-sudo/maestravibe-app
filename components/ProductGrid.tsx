@@ -7,18 +7,20 @@ import ProductCard from '@/components/ProductCard';
 
 interface Props {
   onAddToCart?: (product: Product) => void;
+  initialProducts?: Product[];
 }
 
 const CATEGORIES = ['all', 'fashion', 'electronics', 'home', 'beauty', 'sports'];
 
-export default function ProductGrid({ onAddToCart }: Props) {
-  const [products,  setProducts]  = useState<Product[]>([]);
-  const [filtered,  setFiltered]  = useState<Product[]>([]);
-  const [loading,   setLoading]   = useState(true);
+export default function ProductGrid({ onAddToCart, initialProducts }: Props) {
+  const [products,  setProducts]  = useState<Product[]>(initialProducts ?? []);
+  const [filtered,  setFiltered]  = useState<Product[]>(initialProducts ?? []);
+  const [loading,   setLoading]   = useState(initialProducts === undefined);
   const [category,  setCategory]  = useState('all');
   const [search,    setSearch]    = useState('');
 
   useEffect(() => {
+    if (initialProducts !== undefined) return;
     fetch('/api/products')
       .then((r) => r.json())
       .then((data) => {
@@ -27,7 +29,7 @@ export default function ProductGrid({ onAddToCart }: Props) {
         setFiltered(rows);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [initialProducts]);
 
   useEffect(() => {
     let result = products;
