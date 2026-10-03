@@ -1,17 +1,32 @@
 'use client';
 
 // components/CheckoutForm.tsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCart, saveCart, type CartItem } from '@/components/Cart';
 import { PK_CITIES } from '@/lib/order-validation';
 
+type Market = 'pk' | 'us';
+
+// The middleware stores the detected market in the (non-httpOnly) mv_market cookie.
+function readMarket(): Market {
+  if (typeof document === 'undefined') return 'pk';
+  const c = document.cookie.split('; ').find((x) => x.startsWith('mv_market='));
+  return c?.split('=')[1] === 'us' ? 'us' : 'pk';
+}
+
 export default function CheckoutForm() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [market, setMarket] = useState<Market>('pk');
+  const [payOnline, setPayOnline] = useState(true);
   const [form, setForm] = useState({
     name: '', phone: '', email: '', city: '', area: '', address: '',
   });
+
+  useEffect(() => {
+    setMarket(readMarket());
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -23,6 +38,7 @@ export default function CheckoutForm() {
     if (items.length === 0) { alert('Your cart is empty!'); return; }
 
     setSubmitting(true);
+    let redirecting = false;
     try {
       const total = items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
 
@@ -31,6 +47,8 @@ export default function CheckoutForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer: form,
+          market,
+          paymentMethod: market === 'us' && payOnline ? 'online' : 'cod',
           items: items.map((i) => ({
             name: i.product.name,
             price: i.product.price,
@@ -39,8 +57,6 @@ export default function CheckoutForm() {
             selectedSize: i.selectedSize,
             image: i.product.images?.[0],
             productId: i.product.id,
-            // Supplier commission split — null for in-house MaestraVibe
-            // products, populated for supplier-owned ones. See lib/supabase.ts.
             supplier_id: i.product.supplier_id ?? null,
             supplier_price: i.product.supplier_price ?? null,
           })),
@@ -55,12 +71,19 @@ export default function CheckoutForm() {
         throw new Error(fields || responseData.message || 'Order failed');
       }
 
-      saveCart([]); // clear cart
+      // Online payment: go to the hosted payment page. Cart is cleared on /payment/success.
+      if (responseData.paymentUrl) {
+        redirecting = true;
+        window.location.href = responseData.paymentUrl;
+        return;
+      }
+
+      saveCart([]); // COD: clear cart
       router.push('/?order=success');
     } catch (err: any) {
       alert(err.message ?? 'Something went wrong');
     } finally {
-      setSubmitting(false);
+      if (!redirecting) setSubmitting(false);
     }
   };
 
@@ -80,7 +103,7 @@ export default function CheckoutForm() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             {f.label} {f.required && <span className="text-red-400">*</span>}
           </label>
-          {f.name === 'city' ? (
+          {f.name === 'city' && market === 'pk' ? (
             <select name={f.name} required={f.required} value={form[f.name]} onChange={e => setForm(prev => ({ ...prev, city: e.target.value }))} className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-300">
               <option value="">Select your city</option>
               {PK_CITIES.map(city => <option key={city} value={city}>{city}</option>)}
@@ -98,12 +121,25 @@ export default function CheckoutForm() {
         </div>
       ))}
 
+      {market === 'us' && (
+        <div className="rounded-lg border border-gray-200 p-3 text-sm space-y-2">
+          <label className="flex items-center gap-2">
+            <input type="radio" checked={payOnline} onChange={() => setPayOnline(true)} />
+            Pay online by card
+          </label>
+        </div>
+      )}
+
       <button
         type="submit"
         disabled={submitting}
         className="w-full bg-purple-600 text-white font-semibold py-3 rounded-xl hover:bg-purple-700 transition-colors disabled:opacity-60 mt-2"
       >
-        {submitting ? 'Placing Order...' : 'Place Order'}
+        {submitting
+          ? 'Please wait...'
+          : market === 'us' && payOnline
+          ? 'Continue to payment'
+          : 'Place Order'}
       </button>
     </form>
   );

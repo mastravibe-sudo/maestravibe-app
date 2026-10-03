@@ -1,3 +1,4 @@
+// components/ClientHome.tsx
 'use client';
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
@@ -534,15 +535,20 @@ export default function HomePage({
   // ✅ NEW: customer wants to fill it manually instead — discard the detection.
   const dismissDetectedLocation = () => setPendingLocation(null);
 
+  // ✅ PAYMENTS: Pakistan = Cash on Delivery (unchanged). USA = online card payment
+  // (customer is redirected to the hosted payment page; cart is cleared on /payment/success).
   const submitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setOrderLoading(true);
+    let redirecting = false;
     try {
+      const paymentMethod = isPK ? 'cod' : 'online';
+
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customer: customerInfo, market,
+          customer: customerInfo, market, paymentMethod,
           items: checkoutItems.map(item => ({
             productId: item._id, name: item.name, price: item.price,
             quantity: item.quantity || 1, selectedColor: item.selectedColor,
@@ -561,6 +567,13 @@ export default function HomePage({
         const fields = responseData.fieldErrors ? Object.entries(responseData.fieldErrors).map(([field, message]) => `${field}: ${message}`).join(' ') : '';
         throw new Error(fields || responseData.message || 'Order failed');
       }
+
+      if (responseData.paymentUrl) {
+        redirecting = true;
+        window.location.href = responseData.paymentUrl;
+        return;
+      }
+
       playSound();
       closeCheckout(); setCart([]);
       setCustomerInfo({
@@ -571,7 +584,9 @@ export default function HomePage({
       setShowSuccess(true);
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : 'Order failed'}`);
-    } finally { setOrderLoading(false); }
+    } finally {
+      if (!redirecting) setOrderLoading(false);
+    }
   };
 
   const clearFilters = () => { setPriceMin(''); setPriceMax(''); setSelectedColors([]); setSelectedSizes([]); setSortBy('default'); };

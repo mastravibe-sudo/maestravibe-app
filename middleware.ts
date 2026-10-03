@@ -30,11 +30,16 @@ async function detectMarket(request: NextRequest): Promise<'pk' | 'us'> {
   return 'pk';
 }
 
+const NOINDEX_PREFIXES = ['/payment', '/checkout', '/cart'];
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const response = NextResponse.next();
 
-  if (request.nextUrl.searchParams.get('checkout') === '1') {
+  if (
+    request.nextUrl.searchParams.get('checkout') === '1' ||
+    NOINDEX_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + '/'))
+  ) {
     response.headers.set('X-Robots-Tag', 'noindex, nofollow');
   }
 
