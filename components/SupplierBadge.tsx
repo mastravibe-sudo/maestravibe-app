@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { BadgeCheck, Loader2, Store, UserCheck, UserPlus } from 'lucide-react';
 
-type Info = { id: string; name: string; code: string; followers: number; following: boolean };
+type Info = { id: string; name: string; code: string; avatar?: string | null; followers: number; following: boolean };
 
 export default function SupplierBadge({ supplierId, className = '' }: { supplierId?: string | null; className?: string }) {
   const [info, setInfo] = useState<Info | null>(null);
@@ -46,9 +46,14 @@ export default function SupplierBadge({ supplierId, className = '' }: { supplier
     <div className={`rounded-xl border border-gray-200 bg-white p-3 sm:p-4 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="grid place-items-center w-10 h-10 rounded-full bg-violet-100 text-violet-700 shrink-0">
-            <Store className="w-5 h-5" aria-hidden="true" />
-          </span>
+          {info.avatar ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={info.avatar} alt={info.name} className="w-10 h-10 rounded-full object-cover shrink-0" />
+          ) : (
+            <span className="grid place-items-center w-10 h-10 rounded-full bg-violet-100 text-violet-700 shrink-0">
+              <Store className="w-5 h-5" aria-hidden="true" />
+            </span>
+          )}
           <div className="min-w-0">
             <p className="text-sm font-semibold text-gray-900 truncate flex items-center gap-1">
               {info.name} <BadgeCheck className="w-4 h-4 text-violet-600 shrink-0" aria-label="Verified supplier" />

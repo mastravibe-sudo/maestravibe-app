@@ -44,22 +44,28 @@ export async function GET(req: NextRequest) {
       if (order.supplier_id !== session.id && items.length === 0) return [];
 
       const customer = order.customer ?? {};
+      const awaiting = order.payment_method === 'online' && order.payment_status !== 'paid';
       return [{
         id: order.id,
         created_at: order.created_at,
         status: order.status,
         supplier_status: order.supplier_status,
+        currency: order.currency ?? null,
+        payment_method: order.payment_method ?? 'cod',
+        payment_status: order.payment_status ?? null,
+        awaiting_payment: awaiting,
+        can_update: String(order.supplier_id) === String(session.id),
+        tracking_number: order.tracking_number ?? null,
+        courier: order.courier ?? null,
         items,
         supplier_total: items.reduce(
           (sum: number, item: any) => sum + Number(item.price ?? 0) * Number(item.quantity ?? 1),
           0
         ),
-        customer: {
-          name: customer.name,
-          phone: customer.phone,
-          city: customer.city,
-          address: customer.address,
-        },
+        // Delivery details stay hidden until an online order is actually paid.
+        customer: awaiting
+          ? { name: customer.name, city: customer.city }
+          : { name: customer.name, phone: customer.phone, city: customer.city, address: customer.address },
       }];
     });
 

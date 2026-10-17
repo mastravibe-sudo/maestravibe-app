@@ -29,5 +29,5 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       .eq('supplier_id', String(id)).eq('follower_key', String(session.id)).maybeSingle();
     following = !!data;
   }
-  return NextResponse.json({ id: String(id), name, code, followers: count ?? 0, following }, { headers: { 'Cache-Control': 'no-store' } });
+  return NextResponse.json({ id: String(id), name, code, avatar: acc.avatar_url ?? null, followers: count ?? 0, following }, { headers: { 'Cache-Control': 'no-store' } });
 }
