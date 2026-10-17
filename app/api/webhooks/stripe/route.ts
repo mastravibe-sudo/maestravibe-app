@@ -41,7 +41,7 @@ export async function POST(req: Request) {
         }
 
         // Idempotent: Stripe may resend events.
-        await supabase
+        const { data: flipped } = await supabase
           .from('orders')
           .update({
             payment_status: 'paid',
@@ -49,7 +49,14 @@ export async function POST(req: Request) {
             paid_at: new Date().toISOString(),
           })
           .eq('id', orderId)
-          .neq('payment_status', 'paid');
+          .neq('payment_status', 'paid')
+          .select('id');
+
+        if (flipped && flipped.length > 0) {
+          await supabase.from('order_events').insert([
+            { order_id: String(orderId), status: 'placed', actor: 'system', note: 'Online payment received' },
+          ]);
+        }
         break;
       }
       case 'checkout.session.expired':

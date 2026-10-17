@@ -172,6 +172,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: error.message }, { status: 500 });
     }
 
+    // Tracking: first timeline event (customer, supplier and admin all read the same events)
+    await supabase.from('order_events').insert([
+      {
+        order_id: String(data.id),
+        status: 'placed',
+        actor: 'system',
+        note: paymentMethod === 'online' ? 'Order received, waiting for online payment' : 'Order received',
+      },
+    ]);
+
     if (paymentMethod === 'online') {
       try {
         const provider = getProvider();

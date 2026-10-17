@@ -30,7 +30,7 @@ async function detectMarket(request: NextRequest): Promise<'pk' | 'us'> {
   return 'pk';
 }
 
-const NOINDEX_PREFIXES = ['/payment', '/checkout', '/cart'];
+const NOINDEX_PREFIXES = ['/payment', '/checkout', '/cart', '/track', '/supplier'];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

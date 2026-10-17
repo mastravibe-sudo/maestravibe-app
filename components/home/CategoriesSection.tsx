@@ -1,53 +1,53 @@
 // components/home/CategoriesSection.tsx
 'use client';
+// Swipe row on phones/tablets (native scroll-snap, no arrow buttons), clean grid on laptops. Icons only, no emoji.
 
 import Image from 'next/image';
-import Link from 'next/link';
-import { useState } from 'react';
-import type { CategoryForGrid } from '@/lib/home/types';
-import { categorySlug } from '@/lib/seo';
-import { ChevL, ChevR } from './icons';
+import { Tag } from 'lucide-react';
 
-interface CategoriesSectionProps {
-  categories: CategoryForGrid[];
-  onNavigate: (cat: string) => void;
-}
+interface Cat { label: string; value: string; image?: string; emoji?: string }
 
-export default function CategoriesSection({ categories, onNavigate }: CategoriesSectionProps) {
-  const [catSlide, setCatSlide] = useState(0);
-
+export default function CategoriesSection({
+  categories, onNavigate,
+}: { categories: Cat[]; onNavigate: (cat?: string, q?: string) => void }) {
   return (
-    <section className="py-12 max-w-7xl mx-auto px-4">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-xs font-bold text-violet-600 uppercase tracking-widest mb-1">Browse by</p>
-          <h2 className="text-2xl font-black text-gray-800">Categories</h2>
+    <section className="py-8 sm:py-10 bg-white border-t border-gray-100" aria-labelledby="categories-heading">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex items-end justify-between mb-5">
+          <div>
+            <p className="text-xs font-bold text-violet-600 uppercase tracking-widest mb-1">Browse</p>
+            <h2 id="categories-heading" className="text-xl sm:text-2xl font-black text-gray-800">Shop by Category</h2>
+          </div>
+          <button type="button" onClick={() => onNavigate('all')} className="text-sm text-violet-600 font-semibold hover:underline min-h-9 px-1">
+            View all
+          </button>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setCatSlide(p => Math.max(0, p - 1))} className="w-9 h-9 rounded-xl border-2 border-gray-200 flex items-center justify-center hover:border-violet-400 transition-colors"><ChevL /></button>
-          <button onClick={() => setCatSlide(p => Math.min(Math.max(0, categories.length - 4), p + 1))} className="w-9 h-9 rounded-xl border-2 border-gray-200 flex items-center justify-center hover:border-violet-400 transition-colors"><ChevR /></button>
-        </div>
-      </div>
-      <div className="overflow-hidden">
-        <div className="flex gap-4 transition-transform duration-500" style={{ transform: `translateX(-${catSlide * (100 / 4)}%)` }}>
-          {categories.map(cat => (
-            <Link key={cat.value} href={`/categories/${categorySlug(cat.value)}`} onClick={event => {
-              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-              event.preventDefault();
-              onNavigate(cat.value);
-            }} className="shrink-0 cursor-pointer group rounded-2xl overflow-hidden border border-gray-100 bg-white shadow-sm hover:shadow-xl transition-all duration-300" style={{ width: 'calc(25% - 12px)' }}>
-              <div className="relative overflow-hidden" style={{ height: '160px' }}>
-                {cat.image
-                  ? <Image src={cat.image} alt={`${cat.label} collection`} fill sizes="(max-width: 768px) 50vw, 25vw" className="object-cover group-hover:scale-105 transition-transform duration-500" />
-                  : <div className="w-full h-full flex items-center justify-center bg-violet-50 text-5xl">{cat.emoji || '🛍️'}</div>
-                }
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                <div className="absolute bottom-3 left-3"><p className="text-white font-black text-base">{cat.emoji} {cat.label}</p></div>
-              </div>
-              <div className="p-3 flex items-center justify-between"><span className="text-xs text-gray-500">Explore collection</span><ChevR /></div>
-            </Link>
+
+        <ul className="flex gap-3 sm:gap-4 overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0 md:grid md:grid-cols-4 lg:grid-cols-6 md:overflow-visible">
+          {categories.map((c) => (
+            <li key={c.value} className="snap-start shrink-0 w-[38%] sm:w-[26%] md:w-auto">
+              <button type="button" onClick={() => onNavigate(c.value)} className="group block w-full text-left">
+                <span className="relative block aspect-square rounded-2xl overflow-hidden bg-gray-100">
+                  {c.image ? (
+                    <Image
+                      src={c.image}
+                      alt={c.label}
+                      fill
+                      sizes="(max-width: 640px) 38vw, (max-width: 1024px) 25vw, 16vw"
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                      draggable={false}
+                    />
+                  ) : (
+                    <span className="absolute inset-0 grid place-items-center text-violet-500">
+                      <Tag className="w-8 h-8" aria-hidden="true" />
+                    </span>
+                  )}
+                </span>
+                <span className="mt-2 block text-center text-sm font-semibold text-gray-800">{c.label}</span>
+              </button>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );

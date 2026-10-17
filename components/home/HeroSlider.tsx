@@ -1,62 +1,106 @@
 // components/home/HeroSlider.tsx
 'use client';
+// Touch-first slider: native horizontal scroll + scroll-snap (swipe works on every phone/tablet),
+// auto-play stays controlled by the parent, dots only, NO arrow buttons.
 
+import { useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { useState } from 'react';
+import { ArrowRight } from 'lucide-react';
 import type { Slide } from '@/lib/home/types';
-import { ChevL, ChevR } from './icons';
 
-function SlideImage({ src, fallback, alt }: { src: string; fallback?: string; alt: string }) {
-  const [current, setCurrent] = useState(src);
-  return (
-    <Image
-      src={current}
-      alt={alt}
-      fill
-      priority
-      sizes="100vw"
-      className="w-full h-full object-cover"
-      onError={() => { if (fallback && current !== fallback) setCurrent(fallback); }}
-    />
-  );
-}
-
-interface HeroSliderProps {
+interface Props {
   slides: Slide[];
   currentSlide: number;
-  setCurrentSlide: (updater: number | ((p: number) => number)) => void;
-  onNavigate: (cat: string) => void;
+  setCurrentSlide: (i: number) => void;
+  onNavigate: (cat?: string, q?: string) => void;
 }
 
-export default function HeroSlider({ slides, currentSlide, setCurrentSlide, onNavigate }: HeroSliderProps) {
+export default function HeroSlider({ slides, currentSlide, setCurrentSlide, onNavigate }: Props) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const indexFromScroll = () => {
+    const el = trackRef.current;
+    return !el || !el.clientWidth ? 0 : Math.round(el.scrollLeft / el.clientWidth);
+  };
+
+  // Parent auto-play (or a dot tap) changed the slide: scroll to it.
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    if (indexFromScroll() !== currentSlide) el.scrollTo({ left: currentSlide * el.clientWidth, behavior: 'smooth' });
+  }, [currentSlide]);
+
+  // The visitor swiped: tell the parent which slide is showing.
+  const onScroll = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      const i = indexFromScroll();
+      if (i !== currentSlide) setCurrentSlide(i);
+    }, 90);
+  };
+
+  const go = (link?: string) => {
+    if (!link) return onNavigate('all');
+    if (/^https?:\/\//.test(link) || link.startsWith('/')) { window.location.assign(link); return; }
+    onNavigate(link);
+  };
+
+  if (slides.length === 0) return null;
+
   return (
-    <section className="relative w-full overflow-hidden" style={{ height: 'clamp(280px,55vw,600px)' }}>
-      {slides.map((slide, i) => (
-        <div key={slide.id} className={`absolute inset-0 transition-opacity duration-1000 ${i === currentSlide ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-          <SlideImage src={slide.image} fallback={slide.fallback} alt={slide.title} />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
-          <div className="absolute inset-0 flex items-center px-8 md:px-20">
-            <div className="max-w-lg">
-              {slide.tag && <span className="inline-block bg-violet-500/30 backdrop-blur-sm text-violet-200 text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full mb-3">{slide.tag}</span>}
-              {i === 0
-                ? <h1 className="text-white text-4xl md:text-6xl font-black leading-tight mb-2">{slide.title}</h1>
-                : <h2 className="text-white text-4xl md:text-6xl font-black leading-tight mb-2">{slide.title}</h2>}
-              {slide.sub && <p className="text-white/75 text-sm mb-8">{slide.sub}</p>}
-              <div className="flex gap-3">
-                <button onClick={() => onNavigate(slide.buttonLink === 'all' ? 'all' : slide.buttonLink)} className="bg-violet-600 hover:bg-violet-500 active:scale-95 text-white px-8 py-3.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-violet-600/40">{slide.buttonLabel}</button>
-                <button onClick={() => onNavigate('sale')} className="bg-white/15 backdrop-blur-sm hover:bg-white/25 text-white px-6 py-3.5 rounded-xl font-semibold text-sm transition-all border border-white/30">View Sale 🔥</button>
+    <section aria-label="Featured offers" className="relative">
+      <div
+        ref={trackRef}
+        onScroll={onScroll}
+        className="flex overflow-x-auto snap-x snap-mandatory overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {slides.map((s, i) => (
+          <div key={s.id} className="relative shrink-0 w-full snap-center aspect-[4/3] sm:aspect-[16/8] lg:aspect-[21/8]">
+            {s.image ? (
+              <Image src={s.image} alt={s.title || 'Offer'} fill priority={i === 0} sizes="100vw" className="object-cover" draggable={false} />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-700 to-indigo-900" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/30 to-transparent" />
+            <div className="absolute inset-0 flex items-center">
+              <div className="px-5 sm:px-10 lg:px-16 max-w-xl text-white">
+                {s.tag && (
+                  <span className="inline-block mb-2 rounded-full bg-white/20 backdrop-blur px-3 py-1 text-[11px] sm:text-xs font-bold uppercase tracking-wider">
+                    {s.tag}
+                  </span>
+                )}
+                <h2 className="text-2xl sm:text-4xl lg:text-5xl font-black leading-tight">{s.title}</h2>
+                {s.sub && <p className="mt-2 text-sm sm:text-base text-white/85 line-clamp-2">{s.sub}</p>}
+                <button
+                  type="button"
+                  onClick={() => go(s.buttonLink)}
+                  className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white text-violet-700 font-bold text-sm px-5 py-2.5 min-h-11 hover:bg-violet-50 transition-colors"
+                >
+                  {s.buttonLabel || 'Shop Now'} <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      ))}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-        {slides.map((s, i) => (
-          <button key={s.id} onClick={() => setCurrentSlide(i)} className={`transition-all rounded-full ${i === currentSlide ? 'w-7 h-2.5 bg-white' : 'w-2.5 h-2.5 bg-white/40 hover:bg-white/70'}`} />
         ))}
       </div>
-      <button onClick={() => setCurrentSlide(p => (p - 1 + slides.length) % slides.length)} className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all z-10"><ChevL /></button>
-      <button onClick={() => setCurrentSlide(p => (p + 1) % slides.length)} className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full flex items-center justify-center text-white transition-all z-10"><ChevR /></button>
+
+      {slides.length > 1 && (
+        <div className="absolute bottom-2 inset-x-0 flex justify-center">
+          {slides.map((s, i) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setCurrentSlide(i)}
+              aria-label={`Go to slide ${i + 1}`}
+              aria-current={i === currentSlide}
+              className="p-2"
+            >
+              <span className={`block h-2 rounded-full transition-all ${i === currentSlide ? 'w-6 bg-white' : 'w-2 bg-white/50'}`} />
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

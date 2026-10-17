@@ -4,8 +4,10 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { useSearchParams, useRouter } from 'next/navigation'; // ✅ NEW
+import { useSearchParams, useRouter } from 'next/navigation'; // NEW
 import { useMarket } from '@/lib/market-context';
+import { CreditCard, MapPin, RotateCcw } from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
 
 const AIChat = dynamic(() => import('@/components/AIChat'), { ssr: false });
 
@@ -17,7 +19,7 @@ import {
   effectivePrice, loadCart, loadRecentlyViewed, loadWish,
   playSound, saveCart, saveRecentlyViewed, saveWish,
 } from '@/lib/home/helpers';
-import { calculateDeliveryCharge } from '@/lib/home/delivery'; // ✅ NEW
+import { calculateDeliveryCharge } from '@/lib/home/delivery'; // NEW
 import type { CmsBanner, CmsCategory, CustomerInfo, DetectedLocation, SiteSettings, Slide } from '@/lib/home/types';
 
 import CartDrawer from '@/components/home/CartDrawer';
@@ -43,6 +45,11 @@ import TrendingNowSection from '@/components/home/TrendingNowSection';
 import WhyChooseUsSection from '@/components/home/WhyChooseUsSection';
 import { ShieldIco, TruckIco } from '@/components/home/icons';
 
+// Supabase rows use `id`; the storefront uses `_id`. If `_id` is missing every product looks identical
+// (all hearts light up, cart rows merge, checkout loses productId), so normalise once, here.
+const normalizeProducts = (list: any[]): any[] =>
+  (Array.isArray(list) ? list : []).map((p) => ({ ...p, _id: String(p._id ?? p.id ?? '') }));
+
 // ── HomePageProps ─────────────────────────────────────────────────────────────
 interface HomePageProps {
   initialProducts?: any[];
@@ -65,12 +72,12 @@ export default function HomePage({
   const marketCfg = MARKET_CONFIG[market] ?? MARKET_CONFIG['pk'];
   const isPK = market === 'pk';
 
-  const searchParams = useSearchParams(); // ✅ NEW
-  const router = useRouter(); // ✅ NEW
+  const searchParams = useSearchParams(); // NEW
+  const router = useRouter(); // NEW
 
   const [view, setView] = useState('home');
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [allProducts, setAllProducts] = useState<any[]>(initialProducts ?? []);
+  const [allProducts, setAllProducts] = useState<any[]>(normalizeProducts(initialProducts ?? []));
   const [productsLoading, setProductsLoading] = useState(initialProducts === undefined);
 
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(DEFAULT_SETTINGS);
@@ -114,7 +121,7 @@ export default function HomePage({
     name: '', email: '', phone: '', address: '', city: '', area: '',
     district: '', block: '', locationLink: undefined, lat: undefined, lng: undefined,
   });
-  // ✅ NEW: a just-detected GPS location, held here until the customer
+  // NEW: a just-detected GPS location, held here until the customer
   // explicitly confirms it before it's written into customerInfo.
   const [pendingLocation, setPendingLocation] = useState<DetectedLocation | null>(null);
   const suppressQuickViewRef = useRef(false);
@@ -190,7 +197,7 @@ export default function HomePage({
       setProductsLoading(true);
       const res = await fetch('/api/products');
       if (!res.ok) throw new Error('Failed to load');
-      setAllProducts(await res.json());
+      setAllProducts(normalizeProducts(await res.json()));
     } catch { console.error('Products load failed'); }
     finally { setProductsLoading(false); }
   }, []);
@@ -239,7 +246,7 @@ export default function HomePage({
   const cartTotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const currentCartCount = cart.reduce((s, i) => s + i.quantity, 0);
 
-  // ✅ NEW: delivery charge, computed live from the customer's city + order
+  // NEW: delivery charge, computed live from the customer's city + order
   // subtotal, and the grand total that actually gets charged/shown/submitted.
   const deliveryCharge = useMemo(() => {
     const freeMin = parseFloat(String(marketCfg.freeDeliveryMin).replace(/,/g, '')) || 0;
@@ -255,7 +262,7 @@ export default function HomePage({
       : allProducts
   ), [allProducts]);
 
-  // ✅ FIX: Date check hata diya — sirf enabled flag check karo
+  // FIX: Date check hata diya — sirf enabled flag check karo
   const showFlashSale = siteSettings.flash_sale_enabled;
   const showFestival  = siteSettings.festival_enabled;
 
@@ -449,7 +456,7 @@ export default function HomePage({
 
   const toggleWish = (id: string) => setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
-  // ✅ FIXED (round 2): a single zoom=18 call to Nominatim isn't reliable for
+  // FIXED (round 2): a single zoom=18 call to Nominatim isn't reliable for
   // Pakistani addresses — the "city" tag is often missing at building-level,
   // so the code fell back to whatever was in `county` (frequently a tehsil
   // name like "Model Town Tehsil", not the actual city), and in some replies
@@ -515,7 +522,7 @@ export default function HomePage({
     );
   };
 
-  // ✅ NEW: customer explicitly agreed "yes, deliver here" — now it's safe
+  // NEW: customer explicitly agreed "yes, deliver here" — now it's safe
   // to write the detected fields (incl. the live map link) into the form.
   const confirmDetectedLocation = () => {
     if (!pendingLocation) return;
@@ -532,10 +539,10 @@ export default function HomePage({
     setPendingLocation(null);
   };
 
-  // ✅ NEW: customer wants to fill it manually instead — discard the detection.
+  // NEW: customer wants to fill it manually instead — discard the detection.
   const dismissDetectedLocation = () => setPendingLocation(null);
 
-  // ✅ PAYMENTS: Pakistan = Cash on Delivery (unchanged). USA = online card payment
+  // PAYMENTS: Pakistan = Cash on Delivery (unchanged). USA = online card payment
   // (customer is redirected to the hosted payment page; cart is cleared on /payment/success).
   const submitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -554,7 +561,7 @@ export default function HomePage({
             quantity: item.quantity || 1, selectedColor: item.selectedColor,
             selectedSize: item.selectedSize, image: item.images?.[0] ?? '',
           })),
-          // ✅ NEW: subtotal / deliveryCharge broken out, `total` is now the
+          // NEW: subtotal / deliveryCharge broken out, `total` is now the
           // grand total (subtotal + delivery) actually charged to the customer.
           subtotal: orderTotal,
           deliveryCharge,
@@ -591,7 +598,7 @@ export default function HomePage({
 
   const clearFilters = () => { setPriceMin(''); setPriceMax(''); setSelectedColors([]); setSelectedSizes([]); setSortBy('default'); };
 
-  // ✅ FIX: _id ?? id — Supabase id ko AI ke liye _id mein convert karo (memoized)
+  // FIX: _id ?? id — Supabase id ko AI ke liye _id mein convert karo (memoized)
   const chatProducts = useMemo(() => (
     allProducts.map(p => ({
       _id: p._id ?? p.id,
@@ -683,12 +690,13 @@ export default function HomePage({
           <div className="bg-white border-b border-gray-100">
             <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between">
               <span className="text-xs text-gray-500 font-medium">
-                {marketCfg.flag} Shopping in {marketCfg.label} · {marketCfg.symbol} ({marketCfg.currency})
+                <MapPin className="inline w-3.5 h-3.5 -mt-0.5 mr-1" aria-hidden="true" />Shopping in {marketCfg.label} · {marketCfg.symbol} ({marketCfg.currency})
                 {isPK && ' · Cash on Delivery Available'}
               </span>
-              <span className="text-xs text-violet-500 font-semibold">
-                Switch market from the header menu ↑
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="hidden sm:inline text-xs text-violet-500 font-semibold">Switch market from the header menu</span>
+                <ThemeToggle />
+              </div>
             </div>
           </div>
 
@@ -706,8 +714,8 @@ export default function HomePage({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                 {[
                   { icon: <TruckIco />, t: isPK ? 'Free Delivery' : 'Free Shipping', s: `Above ${marketCfg.symbol}${marketCfg.freeDeliveryMin}` },
-                  { icon: <span className="text-xl">💳</span>, t: isPK ? 'Cash on Delivery' : 'Secure Checkout', s: isPK ? 'No advance needed' : 'Card / PayPal' },
-                  { icon: <span className="text-xl">🔄</span>, t: '7-Day Returns', s: 'Hassle-free policy' },
+                  { icon: <CreditCard className="w-5 h-5" aria-hidden="true" />, t: isPK ? 'Cash on Delivery' : 'Secure Checkout', s: isPK ? 'No advance needed' : 'Card / PayPal' },
+                  { icon: <RotateCcw className="w-5 h-5" aria-hidden="true" />, t: '7-Day Returns', s: 'Hassle-free policy' },
                   { icon: <ShieldIco />, t: '100% Genuine', s: 'Authentic guarantee' },
                 ].map((f, i) => (
                   <div key={i} className="flex items-center gap-3">
@@ -806,9 +814,9 @@ export default function HomePage({
           <section className={`py-8 ${isPK ? 'bg-emerald-50 border-y border-emerald-100' : 'bg-blue-50 border-y border-blue-100'}`}>
             <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
               {isPK ? (
-                <><div><p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Pakistan's Favorite Store</p><h3 className="text-xl font-black text-gray-900 mt-0.5">Cash on Delivery Available Nationwide</h3><p className="text-sm text-gray-600 mt-1">Lahore · Karachi · Islamabad · Peshawar · Quetta · Multan and beyond</p></div><div className="text-3xl">🇵🇰</div></>
+                <><div><p className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Pakistan's Favorite Store</p><h3 className="text-xl font-black text-gray-900 mt-0.5">Cash on Delivery Available Nationwide</h3><p className="text-sm text-gray-600 mt-1">Lahore · Karachi · Islamabad · Peshawar · Quetta · Multan and beyond</p></div><MapPin className="w-9 h-9 text-emerald-600 shrink-0" aria-hidden="true" /></>
               ) : (
-                <><div><p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Shipping to {marketCfg.label}</p><h3 className="text-xl font-black text-gray-900 mt-0.5">Free Shipping on Orders Over {marketCfg.symbol}{marketCfg.freeDeliveryMin}</h3><p className="text-sm text-gray-600 mt-1">Fast, reliable international delivery</p></div><div className="text-3xl">{marketCfg.flag}</div></>
+                <><div><p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Shipping to {marketCfg.label}</p><h3 className="text-xl font-black text-gray-900 mt-0.5">Free Shipping on Orders Over {marketCfg.symbol}{marketCfg.freeDeliveryMin}</h3><p className="text-sm text-gray-600 mt-1">Fast, reliable international delivery</p></div><MapPin className="w-9 h-9 text-blue-600 shrink-0" aria-hidden="true" /></>
               )}
             </div>
           </section>
@@ -849,7 +857,7 @@ export default function HomePage({
 
           <section className="py-20 bg-white relative overflow-hidden border-t border-gray-100">
             <div className="max-w-2xl mx-auto px-4 text-center relative z-10">
-              <p className="text-violet-600 text-xs font-bold uppercase tracking-widest mb-2">MaestraVibe</p>
+              <p className="text-violet-600 text-xs font-bold uppercase tracking-widest mb-2">Maestra Market</p>
               <h2 className="text-3xl md:text-5xl font-black text-gray-900 mb-3">Explore All Products</h2>
               <p className="text-gray-500 mb-8">Thousands of products — fashion to accessories — all in one place</p>
               <button onClick={() => navigateTo()} className="bg-gradient-to-r from-violet-600 to-indigo-700 hover:from-violet-700 hover:to-indigo-800 text-white px-12 py-4 rounded-xl font-black text-base transition-all active:scale-95 shadow-xl shadow-violet-300">Start Shopping →</button>
