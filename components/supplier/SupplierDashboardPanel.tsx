@@ -3,8 +3,9 @@
 // Complete supplier area: sales summary, sales chart, orders with live tracking, account (picture + CNIC).
 // Self-contained. Page:  app/supplier/page.tsx   (or embed <SupplierDashboardPanel /> in app\dashboard\page.tsx)
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BarChart3, ChevronDown, ClipboardList, Clock, Loader2, PackageCheck, Settings, Wallet } from 'lucide-react';
+import { BarChart3, ChevronDown, ClipboardList, Clock, Loader2, Package, PackageCheck, Settings, Wallet } from 'lucide-react';
 import OrderEventsPanel from '@/components/OrderEventsPanel';
 import SupplierOrderStatus from '@/components/supplier/SupplierOrderStatus';
 import CnicUpload from '@/components/supplier/CnicUpload';
@@ -98,7 +99,12 @@ export default function SupplierDashboardPanel() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8 space-y-5">
-      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Supplier dashboard</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Supplier dashboard</h1>
+        <Link href="/supplier/dashboard" className="inline-flex items-center gap-2 rounded-xl border border-violet-600 text-violet-700 px-4 py-2 text-sm font-semibold min-h-10 hover:bg-violet-50">
+          <Package className="w-4 h-4" aria-hidden="true" /> Manage products
+        </Link>
+      </div>
 
       <nav className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Dashboard sections">
         {tabs.map(({ id, label, Icon }) => (
