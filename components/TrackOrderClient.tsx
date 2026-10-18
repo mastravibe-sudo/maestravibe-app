@@ -1,15 +1,15 @@
 // components/TrackOrderClient.tsx
 'use client';
 
-import { useState } from 'react';
-import { Loader2, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Loader2, PenLine, Search } from 'lucide-react';
 import OrderTimeline, { type TimelineEvent } from '@/components/OrderTimeline';
 import type { Stage } from '@/lib/order-status';
 
 type Result = {
   id: string; stage: Stage; courier: string | null; tracking_number: string | null;
   payment_method: string; payment_status: string | null; events: TimelineEvent[];
-  items: { name: string; quantity: number; image: string | null }[];
+  items: { name: string; quantity: number; image: string | null; product_id?: string | null }[];
 };
 
 export default function TrackOrderClient() {
@@ -18,6 +18,12 @@ export default function TrackOrderClient() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [result, setResult] = useState<Result | null>(null);
+
+  // /track?order=ID pre-fills the order id (used by the order confirmation)
+  useEffect(() => {
+    const o = new URLSearchParams(window.location.search).get('order');
+    if (o) setOrderId(o.slice(0, 64));
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +76,17 @@ export default function TrackOrderClient() {
               {result.items.map((it, i) => (
                 <li key={i} className="flex items-center justify-between py-2 text-sm">
                   <span className="text-gray-800 pr-3">{it.name}</span>
-                  <span className="text-gray-500 shrink-0">x {it.quantity}</span>
+                  <span className="text-gray-500 shrink-0 flex items-center gap-3">
+                    x {it.quantity}
+                    {result.stage === 'delivered' && it.product_id && (
+                      <a
+                        href={`/?product=${encodeURIComponent(it.product_id)}&reviewOrder=${encodeURIComponent(String(result.id))}`}
+                        className="inline-flex items-center gap-1 text-violet-600 font-semibold hover:underline"
+                      >
+                        <PenLine className="w-3.5 h-3.5" aria-hidden="true" /> Review
+                      </a>
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>

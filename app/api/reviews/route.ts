@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
   const order_id = clip(raw.order_id, 64);
   const customer_name = clip(raw.customer_name, 80);
   const customer_email = clip(raw.customer_email, 120).toLowerCase();
+  const order_contact = clip(raw.order_contact, 120).toLowerCase();
   const reviewBody = clip(raw.body, 2000);
   const stars = Number(raw.stars);
 
@@ -77,14 +78,19 @@ export async function POST(req: NextRequest) {
     if (dup && dup.length > 0) return NextResponse.json({ error: 'You have already reviewed this product.' }, { status: 409 });
   }
 
-  // Verified purchase = the order's email matches, the order contains THIS product, and it was delivered.
+  // Verified purchase = the contact (email or phone) matches the order, the order contains THIS product,
+  // and the order was delivered.
   let verified = false;
-  if (order_id && customer_email) {
+  const contact = order_contact || customer_email;
+  if (order_id && contact) {
     const { data: order } = await supabase.from('orders').select('*').eq('id', order_id).maybeSingle();
     if (order) {
-      const emailOk = String((order.customer as any)?.email ?? '').trim().toLowerCase() === customer_email;
+      const c = (order.customer ?? {}) as any;
+      const digits = (v: unknown) => String(v ?? '').replace(/\D/g, '').slice(-10);
+      const emailOk = String(c.email ?? '').trim().toLowerCase() === contact;
+      const phoneOk = digits(contact).length >= 7 && digits(c.phone) === digits(contact);
       const hasProduct = Array.isArray(order.items) && order.items.some((i: any) => String(i.productId ?? '') === product_id);
-      verified = emailOk && hasProduct && resolveStage(order) === 'delivered';
+      verified = (emailOk || phoneOk) && hasProduct && resolveStage(order) === 'delivered';
     }
   }
 

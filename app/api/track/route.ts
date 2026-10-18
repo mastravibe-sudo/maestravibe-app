@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       total: order.total,
       currency: order.currency ?? null,
       items: (Array.isArray(order.items) ? order.items : []).map((i: any) => ({
-        name: i.name, quantity: i.quantity ?? 1, image: i.image ?? null,
+        name: i.name, quantity: i.quantity ?? 1, image: i.image ?? null, product_id: i.productId ? String(i.productId) : null,
       })),
       events: list,
     },

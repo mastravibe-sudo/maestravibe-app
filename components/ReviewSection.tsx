@@ -60,6 +60,8 @@ export default function ReviewSection({ productId }: { productId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [submitDone, setSubmitDone] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [orderId, setOrderId] = useState('');
+  const [orderContact, setOrderContact] = useState('');
 
   const [form, setForm] = useState({ customer_name: '', customer_email: '', stars: 0, body: '', photo_url: '' });
 
@@ -75,6 +77,16 @@ export default function ReviewSection({ productId }: { productId: string }) {
   }, [productId]);
 
   useEffect(() => { fetchReviews(page); }, [fetchReviews, page]);
+
+  // Opened from the order tracking page (?reviewOrder=ID): open the form for a Verified Purchase review
+  useEffect(() => {
+    const o = new URLSearchParams(window.location.search).get('reviewOrder');
+    if (o) {
+      setOrderId(o.slice(0, 64));
+      setShowForm(true);
+      setTimeout(() => document.getElementById('reviews')?.scrollIntoView({ behavior: 'smooth' }), 400);
+    }
+  }, []);
 
   // REAL numbers for ALL approved reviews (not just the 10 on this page)
   useEffect(() => {
@@ -97,6 +109,7 @@ export default function ReviewSection({ productId }: { productId: string }) {
     e.preventDefault();
     if (form.stars === 0) { setSubmitError('Please select a star rating.'); return; }
     if (!form.customer_name.trim()) { setSubmitError('Please enter your name.'); return; }
+    if (orderId && !orderContact.trim()) { setSubmitError('Enter the email or phone number used on your order.'); return; }
 
     setSubmitting(true);
     setSubmitError('');
@@ -104,7 +117,7 @@ export default function ReviewSection({ productId }: { productId: string }) {
       const res = await fetch('/api/reviews', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, product_id: productId }),
+        body: JSON.stringify({ ...form, product_id: productId, order_id: orderId || undefined, order_contact: orderContact || undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Submission failed');
@@ -121,7 +134,7 @@ export default function ReviewSection({ productId }: { productId: string }) {
   const field = 'w-full border-2 border-gray-200 rounded-xl px-3 py-2.5 text-sm min-h-11 focus:outline-none focus:border-violet-500 transition';
 
   return (
-    <div className="border-t border-gray-100 pt-8 sm:pt-10">
+    <div id="reviews" className="border-t border-gray-100 pt-8 sm:pt-10">
       <h2 className="text-xl sm:text-2xl font-black text-gray-900 mb-6">Customer Reviews</h2>
 
       {count > 0 && (
@@ -180,6 +193,12 @@ export default function ReviewSection({ productId }: { productId: string }) {
                 <input id="rv-email" type="email" value={form.customer_email} onChange={(e) => setForm((p) => ({ ...p, customer_email: e.target.value }))} placeholder="For verified badge" className={field} />
               </div>
             </div>
+            {orderId && (
+              <div>
+                <label htmlFor="rv-contact" className="block text-sm font-semibold text-gray-700 mb-1.5">Email or phone used on your order *</label>
+                <input id="rv-contact" type="text" value={orderContact} onChange={(e) => setOrderContact(e.target.value)} placeholder="Needed for the Verified Purchase badge" className={field} />
+              </div>
+            )}
             <div>
               <label htmlFor="rv-body" className="block text-sm font-semibold text-gray-700 mb-1.5">Your Review</label>
               <textarea id="rv-body" value={form.body} onChange={(e) => setForm((p) => ({ ...p, body: e.target.value }))} placeholder="Tell others what you think about this product..." rows={4} className={`${field} resize-none`} />

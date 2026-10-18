@@ -6,7 +6,8 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useSearchParams, useRouter } from 'next/navigation'; // NEW
 import { useMarket } from '@/lib/market-context';
-import { CreditCard, MapPin, RotateCcw } from 'lucide-react';
+import Link from 'next/link';
+import { CreditCard, MapPin, PackageSearch, RotateCcw, X } from 'lucide-react';
 import ThemeToggle from '@/components/ThemeToggle';
 
 const AIChat = dynamic(() => import('@/components/AIChat'), { ssr: false });
@@ -117,6 +118,7 @@ export default function HomePage({
   const [locationLoading, setLocationLoading] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [lastOrderId, setLastOrderId] = useState('');
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '', email: '', phone: '', address: '', city: '', area: '',
     district: '', block: '', locationLink: undefined, lat: undefined, lng: undefined,
@@ -581,6 +583,7 @@ export default function HomePage({
         return;
       }
 
+      setLastOrderId(String(responseData.id ?? ''));
       playSound();
       closeCheckout(); setCart([]);
       setCustomerInfo({
@@ -695,6 +698,9 @@ export default function HomePage({
               </span>
               <div className="flex items-center gap-3">
                 <span className="hidden sm:inline text-xs text-violet-500 font-semibold">Switch market from the header menu</span>
+                <Link href="/track" className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-600 hover:underline">
+                  <PackageSearch className="w-4 h-4" aria-hidden="true" /> Track order
+                </Link>
                 <ThemeToggle />
               </div>
             </div>
@@ -945,6 +951,19 @@ export default function HomePage({
       {checkoutOverlay}
 
       {showSuccess && <OrderSuccessModal isPK={isPK} onClose={() => setShowSuccess(false)} />}
+
+      {lastOrderId && (
+        <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 sm:w-96 z-[100] rounded-2xl border border-violet-200 bg-white p-4 shadow-xl" role="status">
+          <button type="button" onClick={() => setLastOrderId('')} aria-label="Dismiss" className="absolute top-2 right-2 grid place-items-center w-8 h-8 rounded-full text-gray-500 hover:bg-gray-100">
+            <X className="w-4 h-4" aria-hidden="true" />
+          </button>
+          <p className="text-xs text-gray-500">Your order ID (save it to track your order)</p>
+          <p className="font-mono text-sm font-semibold text-gray-900 break-all pr-8">{lastOrderId}</p>
+          <Link href={`/track?order=${encodeURIComponent(lastOrderId)}`} className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-violet-600 hover:underline">
+            <PackageSearch className="w-4 h-4" aria-hidden="true" /> Track this order
+          </Link>
+        </div>
+      )}
 
       <AIChat
         products={chatProducts}
