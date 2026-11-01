@@ -43,6 +43,16 @@ function encodeCursor(cursor: ProductCursor): string {
   return Buffer.from(JSON.stringify(cursor)).toString('base64url');
 }
 
+function isHttpsUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function hasValidApiKey(provided: string, expected: string): boolean {
   const providedHash = createHash('sha256').update(provided).digest();
   const expectedHash = createHash('sha256').update(expected).digest();
@@ -105,15 +115,22 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      items: page.map(product => ({
-        id: product.id,
-        title: product.name,
-        price: product.price,
-        currency: 'PKR',
-        image_url: Array.isArray(product.images) ? product.images[0] ?? null : null,
-        url: new URL(`/products/${encodeURIComponent(product.id)}`, SITE_URL).toString(),
-        in_stock: true,
-      })),
+      items: page.map(product => {
+        const images = Array.isArray(product.images)
+          ? product.images.filter(isHttpsUrl).slice(0, 6)
+          : [];
+
+        return {
+          id: product.id,
+          title: product.name,
+          price: product.price,
+          currency: 'PKR',
+          images,
+          image_url: images[0] ?? null,
+          url: new URL(`/products/${encodeURIComponent(product.id)}`, SITE_URL).toString(),
+          in_stock: true,
+        };
+      }),
       next_cursor:
         hasNextPage && lastProduct
           ? encodeCursor({ created_at: lastProduct.created_at, id: lastProduct.id })
